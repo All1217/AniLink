@@ -65,8 +65,8 @@ RABBIT_MAX_WORKERS = 5
 """
     大模型配置
 """
-DEFAULT_MODEL = "text-embedding-v4"
-MODEL_HOST = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+DEFAULT_MODEL = "qwen3.7-text-embedding-flash"
+MODEL_HOST = "https://maas.qianwenaiapi.com/compatible-mode/v1"
 MODEL_DIMENSION = 1024
 # API key需要自己在环境变量设置：DASHSCOPE_API_KEY=${your_key}
 DASHSCOPE_API_KEY = os.getenv('DASHSCOPE_API_KEY')
