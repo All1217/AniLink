@@ -58,6 +58,11 @@ function onEmitDanmu(danmu: PluginDanmu) {
     ElMessage.warning('请输入弹幕内容')
     return false
   }
+  // danmu.content 是 varchar(100)，超长会触发数据库严格模式报错
+  if (text.length > 100) {
+    ElMessage.warning('弹幕最多 100 个字符')
+    return false
+  }
   void createDanmu({
     uid: userStore.uid,
     vid: props.video.vid,

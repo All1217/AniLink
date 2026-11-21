@@ -103,7 +103,8 @@ export function useChatSession(sendViaSocket: (payload: unknown) => void) {
       chat.unreadCount = 0
       void markChatRead({ uid: me.value, senderId: chat.senderId, targetId: chat.targetId }).catch(() => undefined)
     }
-    void touchChat({ id: chat.id }).catch(() => undefined)
+    // 后端 update 只在 time 非空时才写 latest_time，所以这里必须带上时间
+    void touchChat({ id: chat.id, time: formatDate(Date.now(), DateStringType.ALL) }).catch(() => undefined)
     await loadMessages(true)
   }
 

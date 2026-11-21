@@ -29,6 +29,8 @@ import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { createComment } from '@/api/comment'
+import { DateStringType } from '@/types'
+import { formatDate } from '@/utils/format'
 
 const props = withDefaults(
   defineProps<{
@@ -51,7 +53,11 @@ function ensureLogin() {
   if (!userStore.isLogin) userStore.openLoginDialog()
 }
 
-/** 发表评论/回复：成功后清空输入并通知外部刷新 */
+/**
+ * 发表评论/回复：成功后清空输入并通知外部刷新。
+ * create_time 是 NOT NULL 且后端不填（CommentServiceImpl.insertOne 只做 insert），
+ * 必须由前端带上，格式按 Comment.createTime 的 @JsonFormat("yyyy-MM-dd HH:mm")。
+ */
 async function submit() {
   if (!userStore.isLogin) {
     userStore.openLoginDialog()
@@ -67,6 +73,7 @@ async function submit() {
       rootId: props.rootId,
       parentId: props.parentId,
       toUserId: props.toUserId,
+      createTime: formatDate(Date.now(), DateStringType.Y_M_D_H_M),
     })
     content.value = ''
     ElMessage.success('发布成功')

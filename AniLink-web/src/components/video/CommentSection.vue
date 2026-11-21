@@ -70,7 +70,8 @@ async function load(reset = false) {
       vid: props.vid,
       current: page.value,
       size: 20,
-      sortField: sort.value === CommentFilter.HOTTEST ? 'love' : 'createTime',
+      // 后端把 sortField 直接拼进 order by，必须传真实列名（create_time / love）
+      sortField: sort.value === CommentFilter.HOTTEST ? 'love' : 'create_time',
     })
     list.value = [...list.value, ...(result.records ?? [])]
     total.value = result.total ?? list.value.length
