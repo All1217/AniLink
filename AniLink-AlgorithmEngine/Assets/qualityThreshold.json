@@ -1,0 +1,7 @@
+{
+  "high_quality_threshold": 0.7,
+  "low_quality_threshold": 0.3,
+  "professional_ratio_threshold": 0.2,
+  "long_danmaku_threshold": 20,
+  "short_danmaku_threshold": 5
+}

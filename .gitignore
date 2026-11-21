@@ -1,0 +1,141 @@
+# ==============================================================================
+# AniLink 仓库统一忽略规则
+#
+# 本文件把原先三个独立仓库的 .gitignore 合并到仓库根目录：
+#   - AniLink-Vue3/.gitignore
+#   - AniLink-Java/.gitignore  (+ AniLink-Java/.idea/.gitignore)
+#   - AniLink-AlgorithmEngine/.gitignore
+#
+# 合并说明：三个项目原来的规则分别以各自仓库根为基准，现在全部以本仓库根为
+# 基准。凡是原来写成 "/dist"、"target/" 这类根锚定路径的规则，都改成了不带前
+# 导斜杠的写法（不带内部斜杠的规则会在任意层级匹配），这样三个子目录里的规则
+# 依然生效，且以后新增子目录也能覆盖。
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 一、操作系统 / 通用垃圾文件（三个项目共有）
+# ------------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+*~
+*.swp
+*.swo
+*.sw?
+*.tmp
+*.temp
+tmp/
+temp/
+
+# ------------------------------------------------------------------------------
+# 二、编辑器与 IDE 配置（Vue3 与 AlgorithmEngine 整体忽略，Java 的分条规则
+#     已被下面的目录级规则覆盖）
+# ------------------------------------------------------------------------------
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.iws
+*.iml
+*.ipr
+
+# AniLink-Java/.idea/.gitignore 中原本的默认忽略项
+**/.idea/shelf/
+**/.idea/workspace.xml
+**/.idea/httpRequests/
+**/.idea/dataSources/
+**/.idea/dataSources.local.xml
+**/.idea/modules.xml
+**/.idea/jarRepositories.xml
+**/.idea/compiler.xml
+**/.idea/libraries/
+
+# Eclipse 工程元数据（来自 AniLink-Java）
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+# ------------------------------------------------------------------------------
+# 三、Node / 前端（AniLink-Vue3）
+# ------------------------------------------------------------------------------
+node_modules/
+# 前端构建产物，同时覆盖 Java 项目 NetBeans 的 /dist 目录
+dist/
+.env.local
+.env.*.local
+
+# 包管理器日志
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ------------------------------------------------------------------------------
+# 四、Java / Maven（AniLink-Java）
+# ------------------------------------------------------------------------------
+target/
+# Maven Wrapper 的 jar 需要入库（原 AniLink-Java 规则），保留否定写法以免以后
+# 有别的 jar 规则误伤
+!**/.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# NetBeans 构建产物
+**/nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
+
+# ------------------------------------------------------------------------------
+# 五、Python（AniLink-AlgorithmEngine）
+# ------------------------------------------------------------------------------
+# 字节码与各类缓存
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# 虚拟环境
+venv/
+env/
+ENV/
+myenv/
+virtualenv/
+
+# ------------------------------------------------------------------------------
+# 六、环境变量与本地配置（AniLink-AlgorithmEngine + Vue3）
+# ------------------------------------------------------------------------------
+.env
+.env.production
+.env.development
+**/config/local.py
+*.local.yaml
+*.local.yml
+
+# ------------------------------------------------------------------------------
+# 七、日志
+# ------------------------------------------------------------------------------
+*.log
+*.log.*
+logs/
+
+# ------------------------------------------------------------------------------
+# 八、本地数据与临时产物（AniLink-AlgorithmEngine）
+# ------------------------------------------------------------------------------
+*.db
+*.sqlite3

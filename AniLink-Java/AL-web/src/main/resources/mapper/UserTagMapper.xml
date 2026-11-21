@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.video.web.main.mapper.UserTagMapper">
+
+    <select id="getCommonTags" resultType="java.lang.String">
+        select ut1.tag_name as common_name
+        from (select tag_name from user_tag where uid = #{uid}) ut1
+                 inner join (select tag_name from user_tag where uid = #{vid}) ut2
+                            on ut1.tag_name = ut2.tag_name;
+    </select>
+    <select id="getTagRankList" resultType="com.video.web.main.vo.TagRankListVO"
+            parameterType="java.lang.Long">
+        SELECT t.tag_name AS name,
+               COUNT(*) AS value
+        FROM user_tag t
+                 INNER JOIN danmu d ON t.uid = d.uid
+        WHERE d.vid = #{vid}
+          AND d.status = 1
+        AND t.tag_name != '低质量弹幕倾向'
+        AND t.tag_name != '短平快弹幕'
+        GROUP BY t.tag_name
+        ORDER BY value DESC
+        LIMIT 8;
+    </select>
+</mapper>
