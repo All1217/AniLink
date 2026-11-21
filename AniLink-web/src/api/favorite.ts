@@ -15,16 +15,18 @@ export interface BatchCollectVo {
 
 export interface FavoriteUpdateVo {
   fid: number
+  uid?: number
   title?: string
   description?: string
   visible?: number
+  cover?: string
 }
 
+/** 批量移动/复制/取消收藏统一使用：preFid 源收藏夹，newFid 目标（取消收藏传 0） */
 export interface BatchUpdateVo {
-  uid: number
-  srcFid: number
-  targetFid: number
   vids: number[]
+  preFid: number
+  newFid: number
 }
 
 /** 我的收藏夹分页 */

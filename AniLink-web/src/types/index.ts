@@ -252,17 +252,13 @@ export interface BrowseHistory {
   isDelete: number
 }
 
-export interface HistoryVo {
-  id: number
-  vid: number
-  title: string
-  coverUrl: string
-  duration: number
-  progress: number
+/** 观看历史列表项：BrowseHistory + 视频与作者信息（后端 HistoryVo） */
+export interface HistoryVo extends BrowseHistory {
+  authorUid: number
   nickname: string
-  uid: number
-  viewTime: string
-  isFinish: number
+  title: string
+  videoDuration: number
+  coverUrl: string
 }
 
 export interface ChatVo {

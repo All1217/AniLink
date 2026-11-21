@@ -2,10 +2,15 @@ import { del, get, post } from './client'
 import type { BrowseHistory, HistoryVo, PageRes } from '@/types'
 
 export interface HistoryQueryVo {
+  uid?: number
   current?: number
   size?: number
-  uid?: number
-  vid?: number
+  keyword?: string
+  startDuration?: number | null
+  endDuration?: number | null
+  startTime?: string | null
+  endTime?: string | null
+  vids?: number[]
   id?: number
 }
 

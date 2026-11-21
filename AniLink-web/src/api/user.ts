@@ -9,9 +9,12 @@ export interface UserQueryVo {
 }
 
 export interface FollowQueryVo {
-  uid: number
+  /** 关注列表：followeeId=-1、followerId=目标用户；粉丝列表反过来 */
+  followerId: number
+  followeeId: number
   current?: number
   size?: number
+  sortField?: string
 }
 
 export interface UserInfoUpdateVo {
