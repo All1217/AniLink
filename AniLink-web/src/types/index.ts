@@ -261,29 +261,7 @@ export interface HistoryVo extends BrowseHistory {
   coverUrl: string
 }
 
-export interface ChatVo {
-  id: number
-  senderId: number
-  targetId: number
-  latestTime: string
-  unreadCount: number
-  nickname: string
-  avatar: string
-}
-
-export interface ChatMessage {
-  id: number
-  targetId: number
-  senderId: number
-  content: string
-  senderDel: number
-  targetDel: number
-  withdraw: number
-  messageType: number
-  time: string
-  readStatus: number
-}
-
+/** 会话行（后端 Chat 实体） */
 export interface Chat {
   id: number
   senderId: number
@@ -291,12 +269,37 @@ export interface Chat {
   latestTime: string
 }
 
-/** WS 私信通道的信封 */
+/** 会话列表项（后端 ChatVo extends Chat） */
+export interface ChatVo extends Chat {
+  senderName: string
+  targetName: string
+  senderAvatar: string
+  targetAvatar: string
+  chatMessage: ChatMessage | null
+  unreadCount: number
+}
+
+/** 单条私信（后端 ChatMessage 实体） */
+export interface ChatMessage {
+  id: number
+  senderId: number
+  targetId: number
+  content: string
+  senderDel: number
+  targetDel: number
+  withdraw: number
+  messageType: number
+  readStatus: number
+  time: string
+}
+
+/** WS 私信通道信封（后端字段均为 String，按字符串发送最稳） */
 export interface ChatMessageDTO {
-  from: number
-  to: number
+  from: string
+  to: string
   type: 'auth' | 'private' | 'heartbeat'
   content?: string
+  token?: string
 }
 
 /** WS 播放页在线人数的信封 */

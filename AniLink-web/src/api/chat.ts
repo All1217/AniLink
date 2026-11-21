@@ -8,6 +8,7 @@ export interface ChatQueryVo {
   senderId?: number
   targetId?: number
   id?: number
+  time?: string
 }
 
 /** 会话列表分页 */
