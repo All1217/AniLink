@@ -25,8 +25,8 @@
 
       <el-form-item label="类型">
         <el-radio-group v-model="type">
-          <el-radio :value="0">自制</el-radio>
-          <el-radio :value="1">转载</el-radio>
+          <el-radio :value="1">自制</el-radio>
+          <el-radio :value="2">转载</el-radio>
         </el-radio-group>
       </el-form-item>
 
@@ -46,8 +46,8 @@
 
       <el-form-item label="可见范围">
         <el-radio-group v-model="visible">
-          <el-radio :value="1">公开</el-radio>
-          <el-radio :value="0">仅自己可见</el-radio>
+          <el-radio :value="0">公开</el-radio>
+          <el-radio :value="1">仅自己可见</el-radio>
         </el-radio-group>
       </el-form-item>
 
@@ -70,11 +70,13 @@ const emit = defineEmits<{ (e: 'reset'): void; (e: 'done'): void }>()
 
 const userStore = useUserStore()
 const title = ref('')
-const type = ref(0)
+/** type：1 自制 / 2 转载（与 video.type 列注释一致） */
+const type = ref(1)
 const mcId = ref<number>()
 const tags = ref<string[]>([])
 const descr = ref('')
-const visible = ref(1)
+/** visible：0 公开 / 1 仅自己可见（与 video.visible 列注释一致） */
+const visible = ref(0)
 const coverUrl = ref('')
 const coverUploading = ref(false)
 const submitting = ref(false)
@@ -91,7 +93,11 @@ async function onCover(event: Event) {
   }
 }
 
-/** 提交投稿：字段与后端 Video 实体一致（status=1 进入审核） */
+/**
+ * 提交投稿：字段与后端 Video 实体一致。
+ * status 固定 1（已过审）：后端没有审核后台，而列表查询是 visible=0 AND status=1，
+ * 若传 0（审核中）稿件将永远不会出现在首页；库中既有 15 条数据也全是 status=1。
+ */
 async function submit() {
   if (!title.value.trim() || !mcId.value || !props.videoUrl) {
     ElMessage.warning('请完善标题与分区')

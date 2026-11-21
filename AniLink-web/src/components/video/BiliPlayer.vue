@@ -19,7 +19,7 @@ import artplayerPluginDanmuku, { type Danmu as PluginDanmu, type Mode } from 'ar
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { useWebSocket } from '@/composables/useWebSocket'
-import { addHistory, updateProgress } from '@/api/history'
+import { updateProgress } from '@/api/history'
 import { createDanmu } from '@/api/danmu'
 import { recordPlay } from '@/api/interaction'
 import { DateStringType, Interaction, type CountMessageDTO, type CountMessageVO, type Danmu, type Video } from '@/types'
@@ -37,7 +37,6 @@ const instance = ref<Artplayer | null>(null)
 
 let progressTimer: number | undefined
 let playRecorded = false
-let historyRecorded = false
 
 const danmuku = computed<PluginDanmu[]>(() =>
   props.danmuList.map((item) => ({
@@ -75,36 +74,46 @@ function onEmitDanmu(danmu: PluginDanmu) {
   return true
 }
 
-/** 开始播放：记录一次播放量与历史（同一视频只记一次） */
+/**
+ * 开始播放：
+ * 1) 通知父组件播放量 +1
+ * 2) 登录用户记录一次播放（公开接口，只对登录用户计数）
+ * 3) 立即上报一次进度 + 每 3 秒继续上报
+ *
+ * 注意：观看历史不要另外调 `history/add`——`bh_video` 上有唯一索引 (uid, vid)，
+ * 而 `record/add` 本身就是「有则更新、无则插入」的 upsert，重复插入会撞唯一键。
+ */
 function onPlayStart() {
   emit('played')
-  if (!userStore.isLogin || playRecorded) return
-  playRecorded = true
+  if (!userStore.isLogin) return
 
-  void recordPlay({
-    uid: props.uid,
-    vid: props.video.vid,
-    actionType: Interaction.PLAY,
-    actionTime: formatDate(Date.now(), DateStringType.ALL),
-  }).catch(() => undefined)
-
-  if (!historyRecorded) {
-    historyRecorded = true
-    void addHistory({
+  if (!playRecorded) {
+    playRecorded = true
+    void recordPlay({
       uid: props.uid,
       vid: props.video.vid,
-      viewTime: formatDate(Date.now(), DateStringType.ALL),
-      duration: props.video.duration,
-      isFinish: 0,
-      device: 'PC',
-      ip: '',
-      isDelete: 0,
+      actionType: Interaction.PLAY,
+      actionTime: formatDate(Date.now(), DateStringType.ALL),
     }).catch(() => undefined)
   }
+
+  reportProgress()
   startProgressLoop()
 }
 
-/** 每 3 秒上报一次播放进度；完播由后端按 duration 判定 */
+/** 上报当前位置：后端把它写成「上次观看到哪个节点」（bh_video.duration） */
+function reportProgress() {
+  const current = instance.value?.currentTime ?? 0
+  if (!props.video.vid) return
+  void updateProgress({
+    vid: props.video.vid,
+    duration: props.video.duration,
+    moment: Math.floor(current),
+    commitTime: formatDate(Date.now(), DateStringType.ALL),
+  }).catch(() => undefined)
+}
+
+/** 每 3 秒上报一次播放进度 */
 function startProgressLoop() {
   if (progressTimer) return
   progressTimer = window.setInterval(() => {
