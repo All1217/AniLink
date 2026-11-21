@@ -56,8 +56,9 @@ public class DanmuContorller {
         // 向 Flask 服务发送 GET 请求，返回的视频 ID 列表
         String url = "http://localhost:5000/findSimilar/" + queryVo.getVid() + "/" + queryVo.getUid();
         List<Long> uids = restTemplate.getForObject(url, List.class);
+        // 没有相似用户是正常结果，返回空列表即可（原实现返回 fail，前端会弹「暂无数据！」错误提示）
         if (uids == null || uids.isEmpty()) {
-            return Result.fail(APP_SERVER_ERROR.getCode(), "暂无数据！");
+            return Result.ok(Collections.emptyList());
         }
         return userInfoService.getSimilarUsers(uids);
     }

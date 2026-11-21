@@ -21,8 +21,7 @@ import { useUserStore } from '@/stores/user'
 import { useWebSocket } from '@/composables/useWebSocket'
 import { updateProgress } from '@/api/history'
 import { createDanmu } from '@/api/danmu'
-import { recordPlay } from '@/api/interaction'
-import { DateStringType, Interaction, type CountMessageDTO, type CountMessageVO, type Danmu, type Video } from '@/types'
+import { DateStringType, type CountMessageDTO, type CountMessageVO, type Danmu, type Video } from '@/types'
 import { formatDate } from '@/utils/format'
 
 const props = defineProps<{ video: Video; danmuList: Danmu[]; uid: number }>()
@@ -36,7 +35,6 @@ const danmuCount = ref(0)
 const instance = ref<Artplayer | null>(null)
 
 let progressTimer: number | undefined
-let playRecorded = false
 
 const danmuku = computed<PluginDanmu[]>(() =>
   props.danmuList.map((item) => ({
@@ -82,26 +80,17 @@ function onEmitDanmu(danmu: PluginDanmu) {
 /**
  * 开始播放：
  * 1) 通知父组件播放量 +1
- * 2) 登录用户记录一次播放（公开接口，只对登录用户计数）
- * 3) 立即上报一次进度 + 每 3 秒继续上报
+ * 2) 立即上报一次观看进度 + 每 3 秒继续上报
  *
- * 注意：观看历史不要另外调 `history/add`——`bh_video` 上有唯一索引 (uid, vid)，
- * 而 `record/add` 本身就是「有则更新、无则插入」的 upsert，重复插入会撞唯一键。
+ * 注意：
+ * - 观看历史不要另外调 `history/add`——`bh_video` 上有唯一索引 (uid, vid)，
+ *   而 `record/add` 本身就是「有则更新、无则插入」的 upsert，重复插入会撞唯一键；
+ * - 后端目前没有"记录播放量"的接口（`/main/video/.../play` 在 VideoController 里不存在），
+ *   所以这里不做播放量上报，避免每次播放都产生 404/305 的报错。
  */
 function onPlayStart() {
   emit('played')
   if (!userStore.isLogin) return
-
-  if (!playRecorded) {
-    playRecorded = true
-    void recordPlay({
-      uid: props.uid,
-      vid: props.video.vid,
-      actionType: Interaction.PLAY,
-      actionTime: formatDate(Date.now(), DateStringType.ALL),
-    }).catch(() => undefined)
-  }
-
   reportProgress()
   startProgressLoop()
 }

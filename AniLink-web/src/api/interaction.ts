@@ -15,8 +15,8 @@ export interface LikePayload {
   liked: boolean
 }
 
-/** 记录一次播放（后端累计播放量并写缓存） */
-export const recordPlay = (query: UserVideoQuery) => post('/main/video/public/play', query)
+// 说明：后端没有"记录播放量"的接口（VideoController 里不存在 /main/video/**/play），
+// 播放量目前由 Redis 计数 + UpdateStats 回写，没有对外入口，因此前端不提供该调用。
 
 /** 投币 */
 export const coinVideo = (query: UserVideoQuery) => post<UserVideo>('/main/video/interact/coin', query)

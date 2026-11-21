@@ -84,22 +84,33 @@ async function retryAfterRefresh(config: AxiosRequestConfig & { retried?: boolea
 /** 响应拦截：成功直接解包 data；601 续约、602 登出、305 视为未登录 */
 http.interceptors.response.use(
   (response) => {
-    const body = response.data as ResultData<unknown>
-    if (body && body.code === CODE_SUCCESS) return body.data as never
+    const body = response.data as unknown
 
-    if (body && body.code === CODE_REFRESH) {
+    // 后端有返回 void 的接口（如播放进度上报 /main/video/interact/record/add），响应体为空
+    if (body === undefined || body === null || body === '') {
+      return undefined as never
+    }
+    // 非 Result 结构（如文件流、纯文本）原样返回，避免误判为业务失败
+    if (typeof body !== 'object' || !('code' in body)) {
+      return body as never
+    }
+
+    const result = body as ResultData<unknown>
+    if (result.code === CODE_SUCCESS) return result.data as never
+
+    if (result.code === CODE_REFRESH) {
       return retryAfterRefresh(response.config) as never
     }
-    if (body && body.code === CODE_INVALID) {
+    if (result.code === CODE_INVALID) {
       forceLogout('登录状态已失效，请重新登录')
-      return Promise.reject(body)
+      return Promise.reject(result)
     }
-    if (body && body.code === CODE_NO_LOGIN) {
+    if (result.code === CODE_NO_LOGIN) {
       useUserStore().reset()
-      return Promise.reject(body)
+      return Promise.reject(result)
     }
-    ElMessage.error(body?.message || '请求失败')
-    return Promise.reject(body)
+    ElMessage.error(result.message || '请求失败')
+    return Promise.reject(result)
   },
   (error: AxiosError<ResultData>) => {
     const status = error.response?.status ?? 0
@@ -110,6 +121,10 @@ http.interceptors.response.use(
     }
     if (status === CODE_INVALID || code === CODE_INVALID) {
       forceLogout('登录状态已失效，请重新登录')
+      return Promise.reject(error)
+    }
+    // 305 表示这次请求没有登录态（例如组件在登录前/登出后触发），静默失败，不弹错误
+    if (status === CODE_NO_LOGIN || code === CODE_NO_LOGIN) {
       return Promise.reject(error)
     }
     const message = error.response?.data?.message || error.message || '网络异常'
