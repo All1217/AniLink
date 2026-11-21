@@ -17,6 +17,12 @@ import java.util.Set;
 
 import static com.video.common.constant.JWTConstant.*;
 
+/**
+ * 网关鉴权：只认 access-token，且必须是 typ=access。
+ *
+ * <p>异常交由 {@code GatewayExceptionHandler} 翻译成 JSON：过期 601、非法/类型不匹配 602、
+ * 缺少令牌 305（由下游 LoginAuthInterceptor 兜底时会再次返回 305）。</p>
+ */
 @Component
 public class AccountAuthFilter implements GlobalFilter, Ordered {
     private final AntPathMatcher antPathMatcher = new AntPathMatcher();
@@ -25,6 +31,7 @@ public class AccountAuthFilter implements GlobalFilter, Ordered {
     {
         excludePath.add("/main/login/**");
         excludePath.add("/main/user/register");
+        excludePath.add("/main/public/refresh");
         excludePath.add("/**/public/**");
     }
 
@@ -41,15 +48,16 @@ public class AccountAuthFilter implements GlobalFilter, Ordered {
         // 3.尝试获取token
         List<String> authHeaders = exchange.getRequest().getHeaders().get(AUTHORIZATION_HEADER);
         String token = authHeaders == null ? "" : authHeaders.get(0);
-        Claims claims = JwtUtil.parseToken(token);
+        // 4.校验签名、过期与令牌类型（refresh-token 不能当 access-token 用）
+        Claims claims = JwtUtil.parseToken(token, TOKEN_TYPE_ACCESS);
         Long userId = claims.get(JWT_PAYLOAD_USER_ID, Long.class);
-        // 4.如果用户是登录状态，尝试更新请求头，传递用户信息
+        // 5.如果用户是登录状态，尝试更新请求头，传递用户信息
         if (userId != null) {
             exchange.mutate()
                     .request(builder -> builder.header(USER_ID, userId.toString()))
                     .build();
         }
-        // 5.放行
+        // 6.放行
         return chain.filter(exchange);
     }
 

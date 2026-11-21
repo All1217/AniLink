@@ -29,6 +29,7 @@ public class UserInfo implements Serializable {
 
     @Schema(description = "密码")
     @TableField(value = "password", select = false)
+    @JsonIgnore
     private String password;
 
     @Schema(description = "用户名")

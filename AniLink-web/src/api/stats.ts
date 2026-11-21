@@ -5,7 +5,11 @@ export interface HotSearch {
   show_name: string
   heat_score: number
   icon?: string
+  /** B 站原始跳转地址（可能为空，也可能是 bilibili:// 协议） */
   uri?: string
+  /** 兼容更完整的数据源：部分实现会直接给可点击 url */
+  url?: string
+  /** search / video / bangumi 等跳转类型 */
   goto?: string
 }
 

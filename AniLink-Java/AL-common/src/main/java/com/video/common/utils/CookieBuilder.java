@@ -4,9 +4,9 @@ import lombok.Data;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 
 import java.net.URLDecoder;
@@ -22,6 +22,10 @@ public class CookieBuilder {
     private int maxAge = -1;
     private String path = "/";
     private boolean httpOnly;
+    /** 刷新令牌 Cookie 默认 Lax，阻断跨站携带 */
+    private String sameSite = "Lax";
+    /** HTTPS 部署时置为 true */
+    private boolean secure;
     private String name;
     private String value;
     private String domain;
@@ -40,28 +44,23 @@ public class CookieBuilder {
         if (response == null) {
             return;
         }
-        Cookie cookie = new Cookie(name, URLEncoder.encode(value, charset));
-//        if (StringUtils.isNotBlank(domain)) {
-//            cookie.setDomain(domain);
-//        } else if (request != null) {
-//            String serverName = request.getServerName();
-//            if (!(isIpAddress(serverName) || "localhost".equals(serverName))) {
-//                serverName = StringUtils.subAfter(serverName, ".", false);
-//                cookie.setDomain("." + serverName);
-//            }
-//        }
-        cookie.setHttpOnly(httpOnly);
-        cookie.setMaxAge(maxAge);
-        cookie.setPath(path);
-        log.debug("生成cookie，编码方式:{}，【{}={}，domain:{};maxAge={};path={};httpOnly={}】",
-                charset.name(), name, value, domain, maxAge, path, httpOnly);
-        response.addCookie(cookie);
-        // TODO: 非安全做法，仅仅是为了方便测试，找不到能正确设置refresh-token的方法
-//        response.addHeader("refresh-token", value);
-//        response.setHeader("Access-Control-Allow-Origin", "http://localhost:8080");
-//        response.setHeader("Access-Control-Allow-Credentials", "true");
-//        response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-//        response.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+        // 用 ResponseCookie 构建，才能带上 SameSite（jakarta Cookie 不支持）；值仍按 UTF-8 URL 编码，保持与解码端兼容
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie
+                .from(name, URLEncoder.encode(value, charset))
+                .httpOnly(httpOnly)
+                .path(path)
+                .maxAge(maxAge)
+                .sameSite(sameSite);
+        if (secure) {
+            builder.secure(true);
+        }
+        if (domain != null && !domain.isBlank()) {
+            builder.domain(domain);
+        }
+        ResponseCookie responseCookie = builder.build();
+        log.debug("生成cookie，编码方式:{}，【{}={}，domain:{};maxAge={};path={};httpOnly={};sameSite={};secure={}】",
+                charset.name(), name, value, domain, maxAge, path, httpOnly, sameSite, secure);
+        response.addHeader(HttpHeaders.SET_COOKIE, responseCookie.toString());
     }
 
     /**

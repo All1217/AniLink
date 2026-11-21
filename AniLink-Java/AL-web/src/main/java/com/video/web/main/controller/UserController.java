@@ -26,6 +26,7 @@ public class UserController {
     @GetMapping("getById")
     public Result<UserInfo> getUserInfoById(@RequestParam Long uid) {
         UserInfo userInfo = uiService.getById(uid);
+        erasePassword(userInfo);
         return Result.ok(userInfo);
     }
 
@@ -33,7 +34,15 @@ public class UserController {
     @GetMapping("/public/getById")
     public Result<UserInfo> getUserInfoByIdUnLogin(@RequestParam Long id) {
         UserInfo userInfo = uiService.getById(id);
+        erasePassword(userInfo);
         return Result.ok(userInfo);
+    }
+
+    /** 实体直出会带 password 哈希，响应前置空 */
+    private void erasePassword(UserInfo userInfo) {
+        if (userInfo != null) {
+            userInfo.setPassword(null);
+        }
     }
 
     @Operation(summary = "按UID获取用户额外信息(免登录)")

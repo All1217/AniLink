@@ -2,6 +2,7 @@
   <div ref="boxRef" class="search">
     <div class="search__bar" :class="{ 'is-focus': visible }">
       <input
+        ref="inputRef"
         v-model="keyword"
         class="search__input"
         type="text"
@@ -10,43 +11,30 @@
         @focus="onFocus"
         @keydown.enter="onEnter"
       />
+      <button v-if="showReset" class="search__reset" title="清空" @mousedown.prevent @click="clearInput">
+        <el-icon :size="12"><Close /></el-icon>
+      </button>
       <button class="search__btn" @click="onEnter">
         <el-icon><Search /></el-icon>
       </button>
     </div>
 
-    <div v-if="visible" class="search__panel">
-      <section v-if="history.length > 0" class="search__section">
-        <header class="search__section-head">
-          <span>搜索历史</span>
-          <span class="search__clear" @click="searchStore.clear()">清空</span>
-        </header>
-        <div class="search__tags">
-          <span v-for="item in history" :key="item.content" class="search__tag" @click="go(item.content)">
-            {{ item.content }}
-          </span>
-        </div>
-      </section>
-
-      <section v-if="hot.length > 0" class="search__section">
-        <header class="search__section-head"><span>当前热搜</span></header>
-        <div class="search__hot">
-          <span v-for="(item, index) in hot" :key="item.keyword" class="search__hot-item" @click="go(item.show_name)">
-            <i class="search__hot-order" :class="{ 'is-top': index < 3 }">{{ index + 1 }}</i>
-            <span class="search__hot-text">{{ item.show_name }}</span>
-          </span>
-        </div>
-      </section>
-
-      <p v-if="history.length === 0 && hot.length === 0" class="search__empty">输入关键词开始搜索</p>
-    </div>
+    <SearchDropdown
+      v-if="visible"
+      :history="history"
+      :hot="hot"
+      @use="go"
+      @clear-history="searchStore.clear()"
+      @open-hot="onHotClick"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search } from '@element-plus/icons-vue'
+import { Close, Search } from '@element-plus/icons-vue'
+import SearchDropdown from '@/components/base/SearchDropdown.vue'
 import { useSearchStore } from '@/stores/search'
 import { useUserStore } from '@/stores/user'
 import { fetchHotSearch, type HotSearch } from '@/api/stats'
@@ -58,7 +46,10 @@ const keyword = ref('')
 const visible = ref(false)
 const hot = ref<HotSearch[]>([])
 const boxRef = ref<HTMLElement | null>(null)
+const inputRef = ref<HTMLInputElement | null>(null)
 const history = computed(() => searchStore.history)
+/** 聚焦且有内容时显示快速清空按钮 */
+const showReset = computed(() => visible.value && keyword.value.length > 0)
 
 /** 首次聚焦时拉热搜；热搜接口需要登录，未登录静默跳过（失败也不打扰用户） */
 async function loadHot() {
@@ -79,6 +70,7 @@ function onEnter() {
   go(keyword.value)
 }
 
+/** 站内搜索：记录历史并跳转搜索结果页 */
 function go(value: string) {
   const text = value.trim()
   if (!text) return
@@ -86,6 +78,19 @@ function go(value: string) {
   keyword.value = text
   visible.value = false
   router.push({ path: '/search', query: { keyword: text } })
+}
+
+/** 点击热搜：只记录历史，跳转 B 站由 <a target="_blank"> 完成 */
+function onHotClick(item: HotSearch) {
+  const word = (item.keyword || item.show_name || '').trim()
+  if (word) searchStore.add(word)
+  visible.value = false
+}
+
+/** 清空输入框但保持聚焦，便于继续输入 */
+function clearInput() {
+  keyword.value = ''
+  inputRef.value?.focus()
 }
 
 function onClickOutside(event: MouseEvent) {
@@ -106,7 +111,6 @@ watch(
 
 <style scoped lang="scss">
 @use '@/styles/tokens' as t;
-@use '@/styles/mixins' as m;
 
 .search {
   position: relative;
@@ -137,7 +141,27 @@ watch(
     color: var(--text-1);
   }
 
+  &__reset {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    margin-right: 2px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-3);
+
+    &:hover {
+      background: var(--bg-hover);
+      color: var(--text-1);
+    }
+  }
+
   &__btn {
+    flex-shrink: 0;
     width: 40px;
     height: 100%;
     border: none;
@@ -147,101 +171,6 @@ watch(
     &:hover {
       color: var(--brand);
     }
-  }
-
-  &__panel {
-    position: absolute;
-    top: 40px;
-    left: 0;
-    right: 0;
-    z-index: 60;
-    padding: 12px 14px 14px;
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-lg);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-  }
-
-  &__section + &__section {
-    margin-top: 12px;
-  }
-
-  &__section-head {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 8px;
-    font-size: t.$fs-xs;
-    color: var(--text-3);
-  }
-
-  &__clear {
-    cursor: pointer;
-
-    &:hover {
-      color: var(--brand);
-    }
-  }
-
-  &__tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  &__tag {
-    max-width: 120px;
-    padding: 4px 10px;
-    border-radius: 12px;
-    background: #f6f7f8;
-    font-size: t.$fs-xs;
-    color: var(--text-2);
-    cursor: pointer;
-
-    @include m.ellipsis-1;
-
-    &:hover {
-      background: var(--brand-soft, #fff1f5);
-      color: var(--brand);
-    }
-  }
-
-  &__hot {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 4px 12px;
-  }
-
-  &__hot-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 0;
-    cursor: pointer;
-
-    &:hover .search__hot-text {
-      color: var(--brand);
-    }
-  }
-
-  &__hot-order {
-    width: 16px;
-    font-size: t.$fs-xs;
-    color: var(--text-3);
-    text-align: center;
-
-    &.is-top {
-      color: #f56c6c;
-      font-weight: 700;
-    }
-  }
-
-  &__hot-text {
-    @include m.ellipsis-1;
-  }
-
-  &__empty {
-    font-size: t.$fs-xs;
-    color: var(--text-3);
   }
 }
 </style>

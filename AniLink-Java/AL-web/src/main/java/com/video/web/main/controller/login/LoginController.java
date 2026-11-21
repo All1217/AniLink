@@ -37,6 +37,10 @@ public class LoginController {
     public Result<UserInfo> info() {
         Long userId = LoginUserHolder.getLoginUser().getUserId();
         UserInfo userInfo = service.getLoginUserInfo(userId);
+        // 实体直出会带 password 哈希，响应里置空
+        if (userInfo != null) {
+            userInfo.setPassword(null);
+        }
         return Result.ok(userInfo);
     }
 
