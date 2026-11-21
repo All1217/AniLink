@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "本地数据库 MCP",
+    "description": "把智能体接到 mcp-server-database 的本地 Spring AI MCP 服务（http://127.0.0.1:8102/mcp），用于查看表结构并执行只读 SQL。先在 mcp-server-database/scripts/ 下双击 start-postgres.bat 或 start-mysql.bat 启动服务，随后工具以 mcp__database__connection_info、mcp__database__list_schemas、mcp__database__list_tables、mcp__database__describe_table(s)、mcp__database__flyway_status 和 mcp__database__execute_sql 出现。一个服务进程只连一种库：从 PostgreSQL 换到 MySQL 需先 stop.bat 再双击另一个 start 脚本，这里的地址不用改。execute_sql 默认只读（除非服务以 app.database.read-only=false 启动），结果按 app.database.max-rows（默认 200）截断并对敏感列脱敏，查询只会发往该服务所连的库。服务未启动时工具缺失或调用失败，直到它启动；停用本插件后工具即消失。",
+    "detail": "docs/DETAIL.zh.md"
+  }
+}

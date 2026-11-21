@@ -1,0 +1,9 @@
+- insert:
+    - id: mcp-database
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: database
+        transport: streamable-http
+        url: http://127.0.0.1:8102/mcp
+        startupTimeoutMs: 15000
+        failOnStartupError: false

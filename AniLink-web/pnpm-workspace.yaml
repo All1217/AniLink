@@ -1,0 +1,12 @@
+# pnpm 11 的配置入口（原 package.json 的 pnpm 字段已被 allowBuilds 取代）
+packages:
+  - .
+
+# 只放行确实需要构建脚本的依赖（esbuild 用于 Vite/pre-vite，其余为插件依赖）
+allowBuilds:
+  esbuild: true
+  vue-demi: true
+  '@parcel/watcher': true
+
+# 本地 node_modules 已就绪时不要在 run 前重跑 install
+verifyDepsBeforeRun: false

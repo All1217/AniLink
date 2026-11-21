@@ -1,0 +1,13 @@
+// 统一出口：页面只从这里取接口，避免深层路径散落各处
+export * from './auth'
+export * from './video'
+export * from './comment'
+export * from './danmu'
+export * from './interaction'
+export * from './favorite'
+export * from './history'
+export * from './chat'
+export * from './user'
+export * from './upload'
+export * from './stats'
+export { onUnauthorized } from './client'

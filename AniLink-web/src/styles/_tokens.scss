@@ -1,0 +1,63 @@
+// 设计令牌：颜色 / 字号 / 间距 / 圆角的唯一来源
+// 用法：@use '@/styles/tokens' as t; color: t.$brand;
+$brand: #fb7299;
+$brand-hover: #fc8bab;
+$brand-active: #e05c81;
+$brand-soft: #fff1f5;
+
+$link: #00aeec;
+$link-hover: #33bff0;
+
+$text-1: #18191c;
+$text-2: #61666d;
+$text-3: #9499a0;
+$text-4: #c9ccd0;
+
+$line: #e3e5e7;
+$line-soft: #f1f2f3;
+$bg-page: #f1f2f3;
+$bg-card: #ffffff;
+$bg-hover: #f6f7f8;
+
+$success: #2ac25b;
+$warning: #ffb027;
+$danger: #f56c6c;
+
+$radius-sm: 4px;
+$radius: 6px;
+$radius-lg: 8px;
+$radius-xl: 12px;
+
+// 版心与栅格
+$page-width: 1200px;
+$header-height: 64px;
+$space-xs: 4px;
+$space-sm: 8px;
+$space: 12px;
+$space-md: 16px;
+$space-lg: 24px;
+$space-xl: 32px;
+
+// 字号
+$fs-xs: 12px;
+$fs-sm: 13px;
+$fs: 14px;
+$fs-md: 16px;
+$fs-lg: 18px;
+$fs-xl: 24px;
+
+// 同时映射为 CSS 变量，供运行时（渐变、内联样式）与 Element Plus 使用
+:root {
+  --brand: #{$brand};
+  --brand-hover: #{$brand-hover};
+  --link: #{$link};
+  --text-1: #{$text-1};
+  --text-2: #{$text-2};
+  --text-3: #{$text-3};
+  --line: #{$line};
+  --bg-page: #{$bg-page};
+  --bg-card: #{$bg-card};
+  --bg-hover: #{$bg-hover};
+  --radius: #{$radius};
+  --header-height: #{$header-height};
+}

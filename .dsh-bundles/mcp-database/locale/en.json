@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Local database MCP",
+    "description": "Connects the agent to the local Spring AI MCP server of mcp-server-database at http://127.0.0.1:8102/mcp, so it can inspect schemas and run read-only SQL. Start the server first with mcp-server-database/scripts/start-postgres.bat or start-mysql.bat; its tools then appear as mcp__database__connection_info, mcp__database__list_schemas, mcp__database__list_tables, mcp__database__describe_table(s), mcp__database__flyway_status and mcp__database__execute_sql. Only one database is reachable per server process: switching between PostgreSQL and MySQL needs stop.bat plus the other start script, and the URL here stays the same. execute_sql is read-only unless the server is started with app.database.read-only=false, results are truncated at app.database.max-rows (200 by default) and sensitive columns are masked; queries reach only the database that server connects to. When the server is down the tools are missing or fail until it starts, and turning the bundle off removes them.",
+    "detail": "docs/DETAIL.md"
+  }
+}

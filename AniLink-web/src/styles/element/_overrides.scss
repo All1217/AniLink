@@ -1,0 +1,42 @@
+// Element Plus 外观覆盖：只改 CSS 变量与少量选择器，不重写组件
+:root {
+  --el-color-primary: #fb7299;
+  --el-color-primary-light-3: #fc8bab;
+  --el-color-primary-light-5: #fda3bd;
+  --el-color-primary-light-7: #fdc2d3;
+  --el-color-primary-light-8: #ffdbe6;
+  --el-color-primary-light-9: #fff1f5;
+  --el-color-primary-dark-2: #e05c81;
+  --el-border-radius-base: 6px;
+  --el-text-color-primary: #18191c;
+  --el-text-color-regular: #61666d;
+  --el-border-color: #e3e5e7;
+  --el-border-color-light: #e3e5e7;
+}
+
+// 弹窗：去掉默认头部分割线，贴近 B 站登录/收藏弹窗
+.el-dialog {
+  border-radius: 8px;
+  overflow: hidden;
+
+  .el-dialog__header {
+    margin-right: 0;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .el-dialog__body {
+    padding: 16px 20px;
+  }
+}
+
+// 输入框聚焦：主色描边，避免 Element 默认蓝
+.el-input {
+  --el-input-focus-border-color: #fb7299;
+}
+
+// 分页：紧凑
+.el-pagination {
+  justify-content: center;
+  margin-top: 24px;
+}
