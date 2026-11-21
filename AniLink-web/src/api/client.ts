@@ -1,13 +1,16 @@
 import axios, { type AxiosError, type AxiosRequestConfig } from 'axios'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
-import { cookie } from '@/utils/cookie'
 import type { ResultData } from '@/types'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '/api'
 const CODE_SUCCESS = 200
-/** 后端约定的 token 失效码 */
-const CODE_EXPIRE = [305, 601, 602]
+/** 601：访问令牌过期，可以静默续约 */
+const CODE_REFRESH = 601
+/** 602：令牌非法 / 刷新令牌已失效 / 检测到重用，必须重新登录 */
+const CODE_INVALID = 602
+/** 305：未登录（没有携带令牌） */
+const CODE_NO_LOGIN = 305
 const TIMEOUT = 25_000
 
 export const http = axios.create({
@@ -16,26 +19,32 @@ export const http = axios.create({
   timeout: TIMEOUT,
 })
 
-/** 401 时的外部回调（避免 client 直接依赖 router 造成循环引用） */
+/** 需要重新登录时的外部回调（避免 client 直接依赖 router 造成循环引用） */
 let unauthorizedHandler: (() => void) | null = null
 export function onUnauthorized(handler: () => void): void {
   unauthorizedHandler = handler
 }
 
-/** 请求拦截：注入 access-token，并把 refresh-token 回写成 cookie（后端按 cookie 续约） */
+/** 请求拦截：只注入 access-token；refresh-token 由服务端 HttpOnly Cookie 自动携带，前端不碰 */
 http.interceptors.request.use((config) => {
   const store = useUserStore()
   if (store.token) config.headers['access-token'] = store.token
-  if (store.refreshToken) cookie.set('refresh-token', store.refreshToken)
   return config
 })
 
-/** 单飞的 token 续约：并发请求只触发一次刷新 */
+/**
+ * 单飞的令牌续约：并发请求共享同一个刷新 Promise，避免多标签页/并发请求互相踢下线。
+ * 刷新接口会同时轮换 refresh-token（服务端写 Set-Cookie），浏览器自动更新 Cookie。
+ */
 let refreshing: Promise<boolean> | null = null
 function refreshOnce(): Promise<boolean> {
   if (!refreshing) {
     refreshing = axios
-      .get<ResultData<string>>(`${API_BASE}/main/public/refresh`, { withCredentials: true })
+      .get<ResultData<string>>(`${API_BASE}/main/public/refresh`, {
+        withCredentials: true,
+        // 刷新请求本身不需要 access-token，避免把过期令牌带进去
+        headers: {},
+      })
       .then((res) => {
         if (res.data.code === CODE_SUCCESS) {
           useUserStore().setToken(res.data.data)
@@ -51,40 +60,57 @@ function refreshOnce(): Promise<boolean> {
   return refreshing
 }
 
-/** 命中失效码：先续约再重放一次，仍失败则登出并要求重新登录 */
+/** 会话失效：清本地状态并唤起登录 */
+function forceLogout(message = '登录已过期，请重新登录') {
+  useUserStore().reset()
+  ElMessage.error(message)
+  unauthorizedHandler?.()
+}
+
+/** 601：先续约再重放一次；续约失败才登出 */
 async function retryAfterRefresh(config: AxiosRequestConfig & { retried?: boolean }) {
   const store = useUserStore()
-  // 本来就没登录：不续约、不弹登录框，静默失败交给调用方决定是否提示
+  // 本来就没有令牌：不续约、不弹错，交给调用方处理
   if (!store.token) return Promise.reject(new Error('unauthorized'))
 
   if (!config.retried && (await refreshOnce())) {
     config.retried = true
     return http.request(config)
   }
-  store.reset()
-  ElMessage.error('登录已过期，请重新登录')
-  unauthorizedHandler?.()
+  forceLogout()
   return Promise.reject(new Error('unauthorized'))
 }
 
-/** 响应拦截：成功直接解包 data；业务失败统一提示；失效码走续约 */
+/** 响应拦截：成功直接解包 data；601 续约、602 登出、305 视为未登录 */
 http.interceptors.response.use(
   (response) => {
-    const refreshToken = response.headers['refresh-token']
-    if (refreshToken) useUserStore().setRefreshToken(String(refreshToken))
-
     const body = response.data as ResultData<unknown>
     if (body && body.code === CODE_SUCCESS) return body.data as never
-    if (body && CODE_EXPIRE.includes(body.code)) {
+
+    if (body && body.code === CODE_REFRESH) {
       return retryAfterRefresh(response.config) as never
+    }
+    if (body && body.code === CODE_INVALID) {
+      forceLogout('登录状态已失效，请重新登录')
+      return Promise.reject(body)
+    }
+    if (body && body.code === CODE_NO_LOGIN) {
+      useUserStore().reset()
+      return Promise.reject(body)
     }
     ElMessage.error(body?.message || '请求失败')
     return Promise.reject(body)
   },
   (error: AxiosError<ResultData>) => {
     const status = error.response?.status ?? 0
-    if (CODE_EXPIRE.includes(status)) {
+    const code = error.response?.data?.code ?? 0
+    // 网关异常处理器也可能用 HTTP 状态码透传 601/602
+    if (status === CODE_REFRESH || code === CODE_REFRESH) {
       return retryAfterRefresh(error.config ?? {}) as never
+    }
+    if (status === CODE_INVALID || code === CODE_INVALID) {
+      forceLogout('登录状态已失效，请重新登录')
+      return Promise.reject(error)
     }
     const message = error.response?.data?.message || error.message || '网络异常'
     ElMessage.error(message)

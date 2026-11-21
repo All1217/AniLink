@@ -3,18 +3,17 @@ import * as authApi from '@/api/auth'
 import type { User } from '@/types'
 
 interface UserState {
+  /** 访问令牌：短期，放在内存 + localStorage（刷新令牌只在 HttpOnly Cookie 里，前端不可读） */
   token: string
-  refreshToken: string
   userInfo: User | null
   /** 登录弹窗是否可见（放在这里，任何页面都能唤起登录） */
   loginDialogVisible: boolean
 }
 
-/** 当前登录用户与鉴权态；token 持久化在 localStorage */
+/** 当前登录用户与鉴权态；access-token 持久化在 localStorage */
 export const useUserStore = defineStore('user', {
   state: (): UserState => ({
     token: '',
-    refreshToken: '',
     userInfo: null,
     loginDialogVisible: false,
   }),
@@ -29,10 +28,6 @@ export const useUserStore = defineStore('user', {
   actions: {
     setToken(token: string) {
       this.token = token
-    },
-
-    setRefreshToken(token: string) {
-      this.refreshToken = token
     },
 
     setUserInfo(userInfo: User) {
@@ -71,7 +66,6 @@ export const useUserStore = defineStore('user', {
 
     reset() {
       this.token = ''
-      this.refreshToken = ''
       this.userInfo = null
       this.loginDialogVisible = false
     },
@@ -79,6 +73,6 @@ export const useUserStore = defineStore('user', {
 
   persist: {
     key: 'anilink-user',
-    pick: ['token', 'refreshToken'],
+    pick: ['token'],
   },
 })
