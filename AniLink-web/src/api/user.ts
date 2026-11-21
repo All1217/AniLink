@@ -8,6 +8,11 @@ export interface UserQueryVo {
   size?: number
 }
 
+/** 公开接口用 id，登录态接口用 uid —— 不是笔误，后端两个 handler 的形参名不同 */
+export interface UserPublicQueryVo {
+  id: number
+}
+
 export interface FollowQueryVo {
   /** 关注列表：followeeId=-1、followerId=目标用户；粉丝列表反过来 */
   followerId: number
@@ -28,11 +33,11 @@ export interface UserInfoUpdateVo {
   notice?: string
 }
 
-/** 公开主页：基础信息 */
-export const fetchUserById = (query: UserQueryVo) => get<User>('/main/user/public/getById', query)
+/** 公开主页：基础信息（后端形参名是 id） */
+export const fetchUserById = (query: UserPublicQueryVo) => get<User>('/main/user/public/getById', query)
 
-/** 公开主页：统计信息（粉丝/获赞/播放…） */
-export const fetchUserStatsPublic = (query: UserQueryVo) =>
+/** 公开主页：统计信息（后端形参名是 id） */
+export const fetchUserStatsPublic = (query: UserPublicQueryVo) =>
   get<UserStats>('/main/user/public/getUserStatById', query)
 
 /** 登录态主页：基础信息 */

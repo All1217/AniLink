@@ -94,8 +94,8 @@ async function load() {
 /** 作者信息与关注状态（关注态需要登录） */
 async function loadAuthor(uid: number) {
   const [user, userStats] = await Promise.all([
-    fetchUserById({ uid }).catch(() => null),
-    fetchUserStatsPublic({ uid }).catch(() => null),
+    fetchUserById({ id: uid }).catch(() => null),
+    fetchUserStatsPublic({ id: uid }).catch(() => null),
   ])
   author.value = user
   authorStats.value = userStats

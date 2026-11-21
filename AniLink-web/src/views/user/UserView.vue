@@ -86,8 +86,8 @@ async function load() {
           fetchUserStats({ uid: target }).catch(() => null),
         ])
       : await Promise.all([
-          fetchUserById({ uid: target }).catch(() => null),
-          fetchUserStatsPublic({ uid: target }).catch(() => null),
+          fetchUserById({ id: target }).catch(() => null),
+          fetchUserStatsPublic({ id: target }).catch(() => null),
         ])
     user.value = info
     stats.value = statsData
