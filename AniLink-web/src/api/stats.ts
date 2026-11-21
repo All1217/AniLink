@@ -9,18 +9,18 @@ export interface HotSearch {
   goto?: string
 }
 
+/** 数据中心返回：本期/上期的总量与粉丝量序列（后端 DataResVo） */
 export interface DataResVo {
-  /** 统计值的序列（按天的数量或数值） */
-  data: number[]
-  /** 对应的日期标签 */
-  dates?: string[]
-  total?: number
+  mainRes: number[]
+  subRes: number[]
+  lastMainRes: number[]
+  lastSubRes: number[]
 }
 
 /** 首页热搜榜 */
 export const fetchHotSearch = () => get<HotSearch[]>('/main/dataCenter/mainWindow/get/hotSearch')
 
-/** 数据中心：总播放量趋势 */
+/** 数据中心：总播放量趋势（begin/end 为 yyyy-MM-dd） */
 export const fetchPlayTotal = (uid: number, begin: string, end: string) =>
   get<DataResVo>(`/main/dataCenter/total/get/play?uid=${uid}&begin=${begin}&end=${end}`)
 

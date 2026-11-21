@@ -40,8 +40,12 @@ export default defineConfig(({ mode }) => {
       chunkSizeWarningLimit: 800,
       rollupOptions: {
         output: {
-          manualChunks: {
-            vendor: ['vue', 'vue-router', 'pinia'],
+          // vue 运行时与 echarts（只有数据中心用到）各自成块，便于缓存与按需加载
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return undefined
+            if (id.includes('echarts') || id.includes('zrender')) return 'echarts'
+            if (/node_modules\/(vue|vue-router|pinia)\//.test(id)) return 'vendor'
+            return undefined
           },
         },
       },
