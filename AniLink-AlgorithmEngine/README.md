@@ -26,4 +26,27 @@
 
 # 2 启动
 
-找到`根目录名/src/main.py`，右击启动，或者进入该目录后在命令行输入：`python main.py`
+## 2.1 双击启动（Windows，推荐）
+
+| 脚本 | 作用 |
+| --- | --- |
+| `scripts\start.bat` | 启动服务。自动挑选已装好依赖的 Python（优先 `.venv`，其次 `anaconda3` / `miniconda3` / 当前 conda 环境，最后 PATH 上的 `python`）；端口 5000 被占用时会提示先 `stop.bat` |
+| `scripts\stop.bat` | 结束占用 5000 端口的进程 |
+| `scripts\install.bat` | 首次使用：在引擎目录创建 `.venv` 并执行 `pip install -r requirements.txt` |
+
+启动脚本会自行设置 `PYTHONPATH=<引擎根>;<引擎根>\src`（代码里同时存在 `from server.app import ...` 与 `from src.xxx import ...`，两者都需要）以及 `PYTHONIOENCODING=utf-8`（代码里有 emoji 日志，GBK 控制台会直接抛 `UnicodeEncodeError`）。
+
+启动前请确认 MySQL / Redis / RabbitMQ / Elasticsearch 已运行；未设置 `DASHSCOPE_API_KEY` 时服务仍可启动，但向量化/推荐相关功能会在调用时报错。
+
+## 2.2 手动启动
+
+在**引擎根目录**执行（`src/main.py` 依赖根目录在 `PYTHONPATH` 中）：
+
+```powershell
+$env:PYTHONPATH = "$PWD;$PWD\src"
+$env:PYTHONIOENCODING = "utf-8"
+python src\main.py
+```
+
+也可以继续使用 IDE：找到 `src/main.py`，右击运行（IDE 会把项目根加入 PYTHONPATH）。
+

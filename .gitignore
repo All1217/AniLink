@@ -110,8 +110,9 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
-# 虚拟环境
+# 虚拟环境（scripts\install.bat 会在引擎目录创建 .venv）
 venv/
+.venv/
 env/
 ENV/
 myenv/
