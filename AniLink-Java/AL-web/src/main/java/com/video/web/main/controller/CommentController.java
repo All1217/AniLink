@@ -13,6 +13,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import static com.video.common.result.ResultCodeEnum.PARAM_ERROR;
+
 @Tag(name = "评论相关接口")
 @RestController
 @RequestMapping("/main/comment")
@@ -46,7 +48,10 @@ public class CommentController {
     @Operation(summary = "逻辑删除评论")
     @PutMapping("/logicDelete")
     public Result logicDelete(@RequestBody CommentQueryVo queryVo) {
-        commentService.logicDelete(queryVo);
+        // 只能删除自己的评论：service 里已带 uid 条件，删不到即视为无权限
+        if (commentService.logicDelete(queryVo) == 0) {
+            return Result.fail(PARAM_ERROR.getCode(), "只能删除自己的评论");
+        }
         return Result.ok();
     }
 }

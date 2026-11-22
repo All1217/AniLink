@@ -2,6 +2,8 @@ package com.video.web.main.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.video.common.login.LoginUser;
+import com.video.common.login.LoginUserHolder;
 import com.video.model.entity.Comment;
 import com.video.web.main.mapper.CommentMapper;
 import com.video.web.main.service.CommentService;
@@ -11,14 +13,24 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Set;
+
 @Slf4j
 @Service
 public class CommentServiceImpl implements CommentService {
+    /** sortField 会被拼进 order by，这里做白名单，避免 SQL 注入 */
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of("create_time", "love");
+
     @Autowired
     private CommentMapper commentMapper;
 
     @Override
     public IPage<CommentVo> pageRootItem(IPage<CommentVo> page, CommentQueryVo queryVo) {
+        // 只允许白名单内的列，非法值统一回退到按时间倒序
+        if (queryVo.getSortField() != null && !ALLOWED_SORT_FIELDS.contains(queryVo.getSortField())) {
+            log.warn("非法的评论排序字段：{}，已回退为 create_time", queryVo.getSortField());
+            queryVo.setSortField("create_time");
+        }
         return commentMapper.pageRootItem(page, queryVo);
     }
 
@@ -34,12 +46,20 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    public void logicDelete(CommentQueryVo queryVo) {
+    public int logicDelete(CommentQueryVo queryVo) {
+        // 只允许删除自己的评论：条件里带上当前登录用户 uid，删不到就返回 0
+        LoginUser loginUser = LoginUserHolder.getLoginUser();
+        Long uid = loginUser == null ? null : loginUser.getUserId();
+        if (uid == null) {
+            return 0;
+        }
         Comment t = new Comment();
         t.setIsDeleted(1);
         UpdateWrapper<Comment> updateWrapper = new UpdateWrapper<>();
         updateWrapper.eq("id", queryVo.getId());
         updateWrapper.eq("vid", queryVo.getVid());
-        commentMapper.update(t, updateWrapper);
+        updateWrapper.eq("uid", uid);
+        updateWrapper.eq("is_deleted", 0);
+        return commentMapper.update(t, updateWrapper);
     }
 }

@@ -20,8 +20,12 @@
         (select count(*) cnt, root_id
         from comment where is_deleted = 0 and vid = #{queryVo.vid} and root_id != 0
                      group by root_id) cc on c.id = cc.root_id
+        <!-- 置顶评论始终排在最前，其余按 sortField（create_time / love）倒序 -->
         <if test="queryVo.sortField != null and queryVo.sortField != ''">
-            order by ${queryVo.sortField} desc
+            order by c.is_top desc, ${queryVo.sortField} desc
+        </if>
+        <if test="queryVo.sortField == null or queryVo.sortField == ''">
+            order by c.is_top desc
         </if>
     </select>
 
@@ -39,6 +43,6 @@
                            and root_id = #{queryVo.rootId}) c
                 left join
             (select uid, nickname, avatar from user) u on c.uid = u.uid
-            order by love desc
+            order by c.love desc, c.create_time asc
     </select>
 </mapper>

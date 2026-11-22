@@ -32,14 +32,13 @@
         </button>
 
         <template v-else>
-          <div v-for="reply in replies" :key="reply.id" class="reply">
-            <el-avatar :size="24" :src="reply.avatar || undefined">{{ reply.nickname?.[0] ?? 'U' }}</el-avatar>
-            <div class="reply__body">
-              <span class="reply__name">{{ reply.nickname }}</span>
-              <span class="reply__content">{{ reply.content }}</span>
-              <span class="reply__time">{{ fromNow(reply.createTime) }}</span>
-            </div>
-          </div>
+          <CommentReply
+            v-for="reply in replies"
+            :key="reply.id"
+            :reply="reply"
+            :can-delete="reply.uid === userStore.uid"
+            @delete="onDeleteReply"
+          />
           <button v-if="replies.length < comment.replyCount" class="item__expand" @click="expand">
             查看更多回复
           </button>
@@ -54,6 +53,7 @@ import { computed, ref } from 'vue'
 import { Pointer } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import CommentEditor from './CommentEditor.vue'
+import CommentReply from './CommentReply.vue'
 import { deleteComment, fetchReplies } from '@/api/comment'
 import { useUserStore } from '@/stores/user'
 import type { CommentQuery, CommentVo } from '@/types'
@@ -81,6 +81,11 @@ function toggleReply() {
 
 /** 分页拉取回复（一次 10 条，到底隐藏按钮） */
 async function expand() {
+  // 已经拉齐了就不用再请求，避免出现"查看更多回复"点了没反应
+  if (replies.value.length >= (props.comment.replyCount ?? 0)) {
+    expanded.value = true
+    return
+  }
   const query: CommentQuery = {
     vid: props.vid,
     rootId: rootId.value,
@@ -94,11 +99,34 @@ async function expand() {
   expanded.value = true
 }
 
+/**
+ * 自己回复成功后：
+ * 回复总数变了，必须从第 1 页重新拉，不能沿用旧页码（旧页码会取到空页，
+ * 于是出现"共 2 条回复只显示 1 条 + 查看更多回复点不动"的现象）。
+ */
 function onReplied() {
   replying.value = false
+  replies.value = []
+  page.value = 1
   const target = props.comment
   target.replyCount = (target.replyCount ?? 0) + 1
   void expand()
+}
+
+/** 删除自己的回复：本地移除并同步计数，不整页刷新 */
+async function onDeleteReply(reply: CommentVo) {
+  const confirmed = await ElMessageBox.confirm('删除这条回复？', '提示', { type: 'warning' })
+    .then(() => true)
+    .catch(() => false)
+  if (!confirmed) return
+  const ok = await deleteComment({ id: reply.id, vid: props.vid } as CommentQuery)
+    .then(() => true)
+    .catch(() => false)
+  if (!ok) return
+  ElMessage.success('已删除')
+  replies.value = replies.value.filter((item) => item.id !== reply.id)
+  const target = props.comment
+  target.replyCount = Math.max(0, (target.replyCount ?? 0) - 1)
 }
 
 async function onDelete() {
@@ -106,7 +134,11 @@ async function onDelete() {
     .then(() => true)
     .catch(() => false)
   if (!confirmed) return
-  await deleteComment({ id: props.comment.id, vid: props.vid } as CommentQuery).catch(() => undefined)
+  // 后端只允许删除自己的评论，失败时不要误报成功
+  const ok = await deleteComment({ id: props.comment.id, vid: props.vid } as CommentQuery)
+    .then(() => true)
+    .catch(() => false)
+  if (!ok) return
   ElMessage.success('已删除')
   emit('deleted')
 }
@@ -188,31 +220,6 @@ async function onDelete() {
     margin-top: 6px;
     padding-left: 8px;
     border-left: 2px solid var(--line-soft, #f1f2f3);
-  }
-}
-
-.reply {
-  display: flex;
-  gap: 8px;
-  padding: 4px 0;
-
-  &__body {
-    font-size: t.$fs-xs;
-    line-height: 20px;
-  }
-
-  &__name {
-    margin-right: 6px;
-    color: var(--text-2);
-  }
-
-  &__content {
-    color: var(--text-1);
-  }
-
-  &__time {
-    margin-left: 8px;
-    color: var(--text-3);
   }
 }
 </style>

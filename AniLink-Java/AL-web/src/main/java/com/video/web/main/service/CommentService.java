@@ -12,5 +12,6 @@ public interface CommentService {
 
     IPage<CommentVo> pageReplyItem(IPage<CommentVo> page, CommentQueryVo queryVo);
 
-    void logicDelete(CommentQueryVo queryVo);
+    /** 逻辑删除；返回受影响行数（0 表示不存在或不是本人评论） */
+    int logicDelete(CommentQueryVo queryVo);
 }

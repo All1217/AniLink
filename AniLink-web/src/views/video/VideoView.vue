@@ -3,7 +3,6 @@
     <div class="video-view__main">
       <BiliPlayer :video="video" :danmu-list="danmuList" :uid="userStore.uid" @played="onPlayed" />
       <VideoMeta :video="video" :stats="stats" />
-      <DanmuInsight :vid="video.vid" :danmu-list="danmuList" />
       <CommentSection :vid="video.vid" :count="stats?.comment" />
     </div>
 
@@ -16,6 +15,7 @@
         :busy="followBusy"
         @toggle="toggleFollow"
       />
+      <DanmuPanel :vid="video.vid" :danmu-list="danmuList" />
       <RelatedPanel :vid="video.vid" />
     </aside>
   </div>
@@ -36,7 +36,7 @@ import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import BiliPlayer from '@/components/video/BiliPlayer.vue'
 import VideoMeta from '@/components/video/VideoMeta.vue'
-import DanmuInsight from '@/components/video/DanmuInsight.vue'
+import DanmuPanel from '@/components/video/DanmuPanel.vue'
 import CommentSection from '@/components/video/CommentSection.vue'
 import RelatedPanel from '@/components/video/RelatedPanel.vue'
 import UpCard from '@/components/video/UpCard.vue'
