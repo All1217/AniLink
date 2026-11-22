@@ -10,7 +10,8 @@ import java.util.List;
 public interface UserInfoService {
     UserInfo getById(Long id);
 
-    String insertOne(RegisterVo registerVo);
+    /** 注册：返回新用户（含 uid/username/nickname），密码已做 bcrypt 哈希 */
+    UserInfo insertOne(RegisterVo registerVo);
 
     UserStats getUserStatsByUid(Long uid);
 

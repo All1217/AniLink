@@ -45,7 +45,12 @@ export const useUserStore = defineStore('user', {
     /** 登录成功后立刻拉一次用户信息，保证头像/昵称可用 */
     async signIn(payload: authApi.LoginPayload) {
       const token = await authApi.login(payload)
-      this.setToken(token)
+      await this.applySession(token)
+    },
+
+    /** 已有 access-token（如注册接口直接返回）时落库并拉取用户信息 */
+    async applySession(accessToken: string) {
+      this.setToken(accessToken)
       await this.loadUserInfo()
     },
 

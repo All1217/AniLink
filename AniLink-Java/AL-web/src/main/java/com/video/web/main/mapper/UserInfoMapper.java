@@ -34,6 +34,8 @@ public interface UserInfoMapper extends BaseMapper<UserInfo> {
 
     UserVo getUserVoByUid(UserInfoQueryVo queryVo);
 
-    @Select("select uid, username, nickname, password, status from user where username = #{username}")
-    UserInfo loginOneByNickname(String username);
+    /** 更新密码哈希（登录时把历史 MD5 升级为 bcrypt，或用户改密），同时记录修改时间 */
+    @org.apache.ibatis.annotations.Update("update user set password = #{password}, password_updated_at = now() where uid = #{uid}")
+    int updatePassword(@org.apache.ibatis.annotations.Param("uid") Long uid,
+                       @org.apache.ibatis.annotations.Param("password") String password);
 }

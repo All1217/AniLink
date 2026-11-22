@@ -1,9 +1,13 @@
 package com.video.web.main.controller;
 
+import com.video.common.login.LoginUserHolder;
 import com.video.common.result.Result;
 import com.video.model.entity.UserInfo;
 import com.video.model.entity.UserStats;
+import com.video.web.main.service.LoginService;
 import com.video.web.main.service.UserInfoService;
+import com.video.web.main.vo.ChangePasswordVo;
+import com.video.web.main.vo.LoginResultVo;
 import com.video.web.main.vo.RegisterVo;
 import com.video.web.main.vo.UserInfoQueryVo;
 import com.video.web.main.vo.UserStatsQueryVo;
@@ -21,6 +25,9 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
     @Autowired
     private UserInfoService uiService;
+
+    @Autowired
+    private LoginService loginService;
 
     @Operation(summary = "按UID获取用户信息")
     @GetMapping("getById")
@@ -59,11 +66,20 @@ public class UserController {
         return Result.ok(res);
     }
 
-    @Operation(summary = "注册（新增用户）")
+    @Operation(summary = "注册（新增用户），成功即登录")
     @PostMapping("register")
-    public Result<String> saveOrUpdate(@RequestBody RegisterVo registerVo) {
-        String username = uiService.insertOne(registerVo);
-        return Result.ok(username);
+    public Result<LoginResultVo> saveOrUpdate(@RequestBody RegisterVo registerVo) {
+        UserInfo user = uiService.insertOne(registerVo);
+        String accessToken = loginService.issueTokens(user.getUid(), user.getUsername());
+        return Result.ok(new LoginResultVo(accessToken, user.getUid(), user.getUsername(), user.getNickname()));
+    }
+
+    @Operation(summary = "修改密码（需登录 + 校验旧密码）")
+    @PostMapping("/changePassword")
+    public Result changePassword(@RequestBody ChangePasswordVo changePasswordVo) {
+        Long uid = LoginUserHolder.getLoginUser().getUserId();
+        loginService.changePassword(uid, changePasswordVo);
+        return Result.ok();
     }
 
     @Operation(summary = "修改公告")

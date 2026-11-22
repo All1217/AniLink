@@ -11,6 +11,7 @@ AniLink 是一个仿 B 站（bilibili）的视频社区全栈项目，原为三�
 - 主链路：浏览器 → Vue 3 SPA（dev 8080，`/api` 反代）→ 网关 `AL-gateway`（8090）→ `/main/**` 到 `AL-web`（8022）、`/remark/**` 到 `AL-remark`（8021）；点赞/评论/收藏/历史走 MySQL + Redis + RabbitMQ，聊天与弹幕走 `AL-communication`（8023 + Netty 8024 的 WebSocket）。
 - 画像/推荐：`AniLink-AlgorithmEngine`（Flask，5000）消费 RabbitMQ 消息、共享 Redis 缓存、按 REST 提供 `/recommendations/<user_id>`，定时任务（APScheduler，120s 一轮）刷新行为标签、质量阈值与标签向量。
 - 鉴权：双令牌（`access-token` 30 分钟放请求头 + `refresh-token` 7 天滑动放 HttpOnly Cookie），两者用 `typ` claim 区分；网关 `AccountAuthFilter` 只认 access，`AL-web` 的 `/main/public/refresh` 只认 refresh 并按 jti 轮换（5 秒宽限、重用即吊销全端）；`AL-auth` 的 resource-sdk 拦截器（`LoginAuthInterceptor` / `UserInfoInterceptor` / `FeignRelayUserInterceptor`）只依赖网关透传的 `user-id` 头，`al.auth.resource.enable` 控制是否启用，免登录路径由 `AL-web` 的 `al.auth.resource.exclude-login-paths` 声明。状态码：305 未登录 / 601 过期可续约 / 602 非法需重登。
+- 账号体系：`user.username` 是用户自选的登录名（唯一、大小写不敏感、本期不可改，2-20 位中英文/数字/下划线且不能纯数字），`user.nickname` 仅用于展示（可重复、可改）；密码用 bcrypt（Hutool `BCrypt`，cost 10）存储，历史 MD5 在登录成功时就地升级；登录失败统一返回 307 且按「账号 5 次 / IP 20 次（15 分钟窗口）」限流（212），改密接口需校验旧密码并吊销全部会话。
 - 依赖服务：Nacos（注册 + 共享配置）、MySQL、Redis、RabbitMQ、MinIO、Elasticsearch；地址与口令不在文档里复述，见各服务配置。
 
 ## 仓库结构

@@ -40,25 +40,42 @@ public class AccountAuthFilter implements GlobalFilter, Ordered {
         // 1.获取请求request信息
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getPath().toString();
-        // 2.判断是否是无需登录的路径
+        // 2.透传真实客户端 IP：登录/注册限流的 IP 维度要用，注意免登录路径也要带上
+        String clientIp = resolveClientIp(request);
+        if (clientIp != null) {
+            exchange.mutate().request(builder -> builder.header("X-Real-IP", clientIp)).build();
+        }
+        // 3.判断是否是无需登录的路径
         if (isExcludePath(path)) {
             // 直接放行
             return chain.filter(exchange);
         }
-        // 3.尝试获取token
+        // 4.尝试获取token
         List<String> authHeaders = exchange.getRequest().getHeaders().get(AUTHORIZATION_HEADER);
         String token = authHeaders == null ? "" : authHeaders.get(0);
-        // 4.校验签名、过期与令牌类型（refresh-token 不能当 access-token 用）
+        // 5.校验签名、过期与令牌类型（refresh-token 不能当 access-token 用）
         Claims claims = JwtUtil.parseToken(token, TOKEN_TYPE_ACCESS);
         Long userId = claims.get(JWT_PAYLOAD_USER_ID, Long.class);
-        // 5.如果用户是登录状态，尝试更新请求头，传递用户信息
+        // 6.如果用户是登录状态，尝试更新请求头，传递用户信息
         if (userId != null) {
             exchange.mutate()
                     .request(builder -> builder.header(USER_ID, userId.toString()))
                     .build();
         }
-        // 6.放行
+        // 7.放行
         return chain.filter(exchange);
+    }
+
+    /** 取客户端 IP：优先 X-Forwarded-For 第一段，否则取连接对端地址 */
+    private String resolveClientIp(ServerHttpRequest request) {
+        String forwarded = request.getHeaders().getFirst("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        if (request.getRemoteAddress() == null) {
+            return null;
+        }
+        return request.getRemoteAddress().getAddress().getHostAddress();
     }
 
     @Override

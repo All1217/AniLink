@@ -3,22 +3,24 @@ package com.video.web.main.service.impl;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.video.common.exception.VideoException;
 import com.video.common.result.Result;
+import com.video.common.result.ResultCodeEnum;
 import com.video.common.utils.CodeUtil;
+import com.video.common.utils.PasswordUtil;
 import com.video.model.entity.Favorite;
 import com.video.model.entity.UserInfo;
 import com.video.model.entity.UserStats;
 import com.video.web.main.mapper.UserInfoMapper;
 import com.video.web.main.service.FavoriteService;
 import com.video.web.main.service.UserInfoService;
+import com.video.web.main.util.AccountRules;
 import com.video.web.main.vo.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.BoundValueOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.DigestUtils;
 
 import java.util.Collections;
 import java.util.Date;
@@ -46,34 +48,49 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
 
     @Override
     public UserInfo getById(Long id) {
-        return uiMapper.selectOneByUsername(id.toString());
+        // 注意：按 uid 查，不能拿 uid 当 username（账号体系重做后 username 不再等于 uid）
+        return uiMapper.getById(id);
     }
 
     /**
-     * 注册业务逻辑
+     * 注册业务逻辑：username 是用户自选的登录名（不再用系统生成的数字码），密码用 bcrypt 存储。
      */
     @Override
     @Transactional
-    public String insertOne(RegisterVo registerVo) {
-        //生成UID
+    public UserInfo insertOne(RegisterVo registerVo) {
+        // 1.规范化与规则校验（用户名/密码/昵称）
+        String username = AccountRules.normalizeUsername(registerVo.getUsername());
+        String nickname = AccountRules.normalizeNickname(registerVo.getNickname(), username);
+        AccountRules.validateUsername(username);
+        AccountRules.validatePassword(registerVo.getPassword());
+        AccountRules.validateNickname(nickname);
+        // 2.用户名占用检查（并发场景由唯一索引兜底）
+        if (uiMapper.selectOneByUsername(username) != null) {
+            throw new VideoException(ResultCodeEnum.USERNAME_TAKEN);
+        }
+        // 3.生成 uid（沿用可见码规则）
         Long sequence = serialOps.increment(1);
         if (sequence == null) {
             throw new VideoException(APP_SERVER_ERROR.getCode(), "服务器异常：生成自增序列号失败！");
         }
         Long uid = CodeUtil.geneVisibleCode(sequence, sequence);
+        // 4.落库
         UserInfo userInfo = new UserInfo();
         userInfo.setUid(uid);
-        userInfo.setUsername("" + uid);
+        userInfo.setUsername(username);
+        userInfo.setNickname(nickname);
         userInfo.setAvatar(DEFAULT_AVATAR);
-        userInfo.setNickname(registerVo.getNickname());
-        userInfo.setPassword(DigestUtils.md5DigestAsHex(registerVo.getPassword().getBytes()));
+        userInfo.setPassword(PasswordUtil.encode(registerVo.getPassword()));
         userInfo.setCreateDate(new Date());
-        uiMapper.insert(userInfo);
-        //初始化用户额外数据
+        try {
+            uiMapper.insert(userInfo);
+        } catch (DuplicateKeyException e) {
+            throw new VideoException(ResultCodeEnum.USERNAME_TAKEN);
+        }
+        // 5.初始化用户额外数据与默认收藏夹
         UserStats userStats = new UserStats();
         userStats.setUid(uid);
         uiMapper.inserUserStats(userStats);
-        //初始化收藏夹
         Favorite tf = new Favorite();
         tf.setType(1);
         tf.setTitle("默认收藏夹");
@@ -81,7 +98,7 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
         tf.setUid(uid);
         tf.setVisible(1);
         favoriteService.insertOne(tf);
-        return "" + uid;
+        return userInfo;
     }
 
     @Override
