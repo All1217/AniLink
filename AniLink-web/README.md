@@ -92,8 +92,9 @@ src/
 ### 视频播放（HLS 分片 + MP4 兜底）
 
 - 播放地址：`vid.hlsUrl`（m3u8）优先，没有转码产物时回退 `videoUrl`（MP4 + HTTP Range 伪流式）。
-- `hls.js` 动态 `import`，只在播放页加载（单独 chunk，不进首屏）；Safari / iOS 走原生 HLS，不加载 hls.js；hls.js 不可用或分片出现致命错误时自动回退 MP4，不会白屏。
-- 播放器参数在 `src/composables/useHls.ts`：6s 分片、`startLevel: -1`（首个分片后按带宽定量）、`capLevelToPlayerSize`（按播放器尺寸限制码率）、缓冲 30s/上限 60s。
+- 播放内核：**优先 hls.js（MSE）**；新版 Chrome/Edge 的 `canPlayType('application/vnd.apple.mpegurl')` 也返回 `maybe`，但原生 HLS 的缓冲与 seek 策略不可控（实测缓冲只有 ~18s、远距离 seek 要 300–800ms），所以只有 MSE 不受支持（iOS Safari 等）时才把 m3u8 交给浏览器原生播放。`hls.js` 动态 `import`，单独 chunk，不进首屏。
+- 缓冲策略：`maxBufferLength: 120` / `backBufferLength: 300`（约 120MB 上限），让拖进度条大概率落在已缓冲区间；分片出现致命错误或浏览器不支持 MSE 时自动回退 MP4，不会白屏。
+- 拖动进度条：`useSeekThrottle` 在拖拽期间只让进度条跟手、松手才 seek 一次，并**吃掉拖动结束后补发的 click**（否则 Artplayer 会重复 seek 并把提示覆盖成时间）；拖动中每 250ms 用 `hls.latestLevelDetails` 预热落点分片（分片是 `immutable` 缓存，松手后 hls.js 直接命中）；松手后 `useSeekFeedback` 在播放器上显示「缓冲中 mm:ss」，出画面自动收起。
 - `BiliPlayer.vue` 另外做了三件事：`poster` 用封面、`preload: 'auto'` 提前缓冲、按媒体域名做 `preconnect` 预热 DNS/TCP。
 - 转码在后端异步完成（`video.transcode_status`），投稿后先播 MP4，转完自动切 HLS；详见根目录 `AGENTS.md`。
 

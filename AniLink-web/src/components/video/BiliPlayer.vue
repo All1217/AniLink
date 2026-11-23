@@ -1,6 +1,8 @@
 <template>
   <div class="player">
     <div ref="container" class="player__core" />
+    <!-- 拖动松手后的缓冲提示：自己画，避免被 Artplayer 的 seek 提示覆盖 -->
+    <div v-if="seekTipBusy" class="player__tip">{{ seekTipText }}</div>
     <div class="player__bar">
       <span class="player__online">
         <b>{{ watchCount }}</b> 人正在看
@@ -22,6 +24,7 @@ import { useWebSocket } from '@/composables/useWebSocket'
 import { createHlsPlayer, preconnect } from '@/composables/useHls'
 import { throttleProgressSeek } from '@/composables/useSeekThrottle'
 import { usePlayProgress } from '@/composables/usePlayProgress'
+import { useSeekFeedback } from '@/composables/useSeekFeedback'
 import { createDanmu } from '@/api/danmu'
 import { DateStringType, type CountMessageDTO, type CountMessageVO, type Danmu, type Video } from '@/types'
 import { formatDate } from '@/utils/format'
@@ -45,6 +48,11 @@ const progress = usePlayProgress(() => instance.value, () => props.video)
 
 /** 拖动进度条节流的解绑函数（Artplayer 实例创建后注册） */
 let detachSeek: (() => void) | null = null
+/** 松手后的「缓冲中」提示 */
+const seekTip = useSeekFeedback()
+/** 模板里要顶层 ref 才会自动解包，这里单独取出来 */
+const seekTipBusy = seekTip.busy
+const seekTipText = seekTip.text
 
 const danmuku = computed<PluginDanmu[]>(() =>
   props.danmuList.map((item) => ({
@@ -155,8 +163,12 @@ onMounted(async () => {
   danmuCount.value = danmuku.value.length
   instance.value.on('play', onPlayStart)
   instance.value.on('pause', progress.stop)
-  // 拖动进度条只在松手时 seek，避免 MSE 连续重载分片（见 useSeekThrottle）
-  detachSeek = throttleProgressSeek(instance.value)
+  seekTip.attach(instance.value)
+  // 拖动只在松手时 seek；拖动中预热落点分片，松手后立刻给出缓冲提示
+  detachSeek = throttleProgressSeek(instance.value, {
+    onPreview: (time) => hls.prefetch(time),
+    onCommit: seekTip.show,
+  })
 
   if (userStore.isLogin) connectWs()
 })
@@ -181,6 +193,19 @@ onBeforeUnmount(() => {
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: #000;
+
+  &__tip {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 5;
+    padding: 5px 10px;
+    border-radius: var(--radius);
+    background: rgb(0 0 0 / 60%);
+    color: #fff;
+    font-size: t.$fs-xs;
+    pointer-events: none;
+  }
 
   &__core {
     height: 476px;
