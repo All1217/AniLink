@@ -40,4 +40,17 @@ al:
       max-sessions: ${AUTH_MAX_SESSIONS:3}       # 同一用户最多会话数
       secure-cookie: ${AUTH_SECURE_COOKIE:false} # HTTPS 部署请置为 true
       legacy-compat: ${AUTH_LEGACY_COMPAT:true}  # 兼容没有 typ 的旧令牌；收紧时置 false
+  # 视频播放分片加载（HLS）：投稿后异步转码，转完写 video.hls_url，前端优先播 HLS，未转完回退 MP4
+  transcode:
+    enabled: ${AL_TRANSCODE_ENABLED:true}
+    # 本机 ffmpeg；换机器用环境变量 AL_FFMPEG_PATH 覆盖（也可直接填 PATH 里的 ffmpeg）
+    ffmpeg-path: ${AL_FFMPEG_PATH:E:/Program files (x86)/ffmpeg/bin/ffmpeg.exe}
+    tmp-dir: ${AL_TRANSCODE_TMP:}
+    preset: ${AL_TRANSCODE_PRESET:veryfast}
+    crf: ${AL_TRANSCODE_CRF:21}
+    segment-seconds: ${AL_TRANSCODE_SEGMENT:6}
+    max-attempts: ${AL_TRANSCODE_ATTEMPTS:2}
+    # 启动时把 transcode_status=0 的存量稿件补跑（单线程串行，不影响启动）
+    recover-on-start: ${AL_TRANSCODE_RECOVER:true}
+    timeout-minutes: ${AL_TRANSCODE_TIMEOUT:60}
 

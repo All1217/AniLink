@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -23,6 +24,21 @@ import static com.video.common.result.ResultCodeEnum.APP_SERVER_ERROR;
 @Service
 @Slf4j
 public class FileServiceImpl implements FileService {
+    /** 按后缀写正确的 MIME：MinIO 默认给 application/octet-stream，浏览器会退化成嗅探 */
+    private static final Map<String, String> CONTENT_TYPES = Map.of(
+            ".mp4", "video/mp4",
+            ".webm", "video/webm",
+            ".mov", "video/quicktime",
+            ".png", "image/png",
+            ".jpg", "image/jpeg",
+            ".jpeg", "image/jpeg",
+            ".webp", "image/webp",
+            ".gif", "image/gif",
+            ".svg", "image/svg+xml"
+    );
+    /** 对象名含 UUID，内容不会变，可按长期不可变缓存 */
+    private static final String IMMUTABLE_CACHE = "public, max-age=31536000, immutable";
+
     @Autowired
     private MinioClient minioClient;
     @Autowired
@@ -40,6 +56,8 @@ public class FileServiceImpl implements FileService {
                             .bucket(bucketName)
                             .object(objectName)
                             .stream(file.getInputStream(), file.getSize(), -1)
+                            .contentType(CONTENT_TYPES.getOrDefault(ext.toLowerCase(), "application/octet-stream"))
+                            .headers(Map.of("Cache-Control", IMMUTABLE_CACHE))
                             .build()
             );
         } catch (Exception e) {

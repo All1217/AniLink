@@ -12,6 +12,7 @@ AniLink 是一个仿 B 站（bilibili）的视频社区全栈项目，原为三�
 - 画像/推荐：`AniLink-AlgorithmEngine`（Flask，5000）消费 RabbitMQ 消息、共享 Redis 缓存、按 REST 提供 `/recommendations/<user_id>`，定时任务（APScheduler，120s 一轮）刷新行为标签、质量阈值与标签向量。
 - 鉴权：双令牌（`access-token` 30 分钟放请求头 + `refresh-token` 7 天滑动放 HttpOnly Cookie），两者用 `typ` claim 区分；网关 `AccountAuthFilter` 只认 access，`AL-web` 的 `/main/public/refresh` 只认 refresh 并按 jti 轮换（5 秒宽限、重用即吊销全端）；`AL-auth` 的 resource-sdk 拦截器（`LoginAuthInterceptor` / `UserInfoInterceptor` / `FeignRelayUserInterceptor`）只依赖网关透传的 `user-id` 头，`al.auth.resource.enable` 控制是否启用，免登录路径由 `AL-web` 的 `al.auth.resource.exclude-login-paths` 声明。状态码：305 未登录 / 601 过期可续约 / 602 非法需重登。
 - 账号体系：`user.username` 是用户自选的登录名（唯一、大小写不敏感、本期不可改，2-20 位中英文/数字/下划线且不能纯数字），`user.nickname` 仅用于展示（可重复、可改）；密码用 bcrypt（Hutool `BCrypt`，cost 10）存储，历史 MD5 在登录成功时就地升级；登录失败统一返回 307 且按「账号 5 次 / IP 20 次（15 分钟窗口）」限流（212），改密接口需校验旧密码并吊销全部会话。
+- 视频播放：投稿后 `AL-web` 用 ffmpeg 异步转 HLS（单线程队列，`al.transcode.*`，ffmpeg 路径由 `AL_FFMPEG_PATH` 覆盖），产物在 MinIO 的 `video` 桶 `hls/{vid}/`（6s fMP4 分片 + `index.m3u8`），状态写 `video.transcode_status`（0 待转 / 1 转中 / 2 完成 / 3 失败），完成后写 `video.hls_url`；前端 `hls.js`（动态 import，Safari 原生 HLS）优先播 `hlsUrl`，为空或致命错误回退 `videoUrl`（MP4 + Range）。转码还会把原 MP4 重封装成 faststart（moov 前置），对象名不变。启动时自动补跑 `transcode_status=0` 的稿件，所以**不要手工改这一列**。
 - 依赖服务：Nacos（注册 + 共享配置）、MySQL、Redis、RabbitMQ、MinIO、Elasticsearch；地址与口令不在文档里复述，见各服务配置。
 
 ## 仓库结构

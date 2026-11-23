@@ -4,6 +4,7 @@ import com.video.common.properties.MinIOProperties;
 import com.video.common.result.Result;
 import com.video.model.entity.Video;
 import com.video.web.main.service.FileService;
+import com.video.web.main.service.TranscodeService;
 import com.video.web.main.service.VideoService;
 import io.minio.*;
 import io.minio.http.Method;
@@ -29,6 +30,8 @@ public class FileUploadController {
     private VideoService videoService;
     @Autowired
     private FileService fileService;
+    @Autowired
+    private TranscodeService transcodeService;
 
     @Operation(summary = "上传头像")
     @PostMapping("upload/avatar")
@@ -53,6 +56,8 @@ public class FileUploadController {
     public Result submit(@RequestBody Video video) {
         log.info("接收到的参数：{}", video);
         videoService.insertOne(video);
+        // 入库后异步转 HLS：转码期间播放器继续用刚上传的 MP4
+        transcodeService.submit(video.getVid());
         return Result.ok();
     }
 

@@ -1,9 +1,12 @@
 <template>
   <div class="form">
-    <header class="form__head">
-      <span class="form__file">{{ fileName }}</span>
-      <button class="form__reset" @click="emit('reset')">重新选择</button>
-    </header>
+    <UploadQueue
+      :file-name="fileName"
+      :percent="percent"
+      :status="status"
+      @retry="startUpload"
+      @reset="emit('reset')"
+    />
 
     <el-form label-width="72px">
       <el-form-item label="封面">
@@ -59,16 +62,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { partitions } from '@/config/site'
-import { submitVideo, uploadCover } from '@/api/upload'
+import { submitVideo, uploadCover, uploadVideo } from '@/api/upload'
+import { readVideoDuration } from '@/utils/video'
+import UploadQueue from './UploadQueue.vue'
 
-const props = defineProps<{ videoUrl: string; duration: number; fileName: string }>()
+const props = defineProps<{ file: File; fileName: string }>()
 const emit = defineEmits<{ (e: 'reset'): void; (e: 'done'): void }>()
 
 const userStore = useUserStore()
+/** 视频上传状态：进入信息页即开始上传，用户边填信息边等 */
+const status = ref<'uploading' | 'done' | 'error'>('uploading')
+const percent = ref(0)
+const videoUrl = ref('')
+/** 时长与上传并行解析，提交时再取，避免拖慢上传启动 */
+const durationTask = readVideoDuration(props.file)
 const title = ref('')
 /** type：1 自制 / 2 转载（与 video.type 列注释一致） */
 const type = ref(1)
@@ -81,6 +92,34 @@ const coverUrl = ref('')
 const coverUploading = ref(false)
 const submitting = ref(false)
 const coverRef = ref<HTMLInputElement | null>(null)
+/** 当前上传的取消句柄：重新上传或离开本页时中断旧请求，防止进度串台 */
+let uploadCtrl: AbortController | null = null
+
+/** 上传视频：本页只负责进度展示，上传失败可原地重试（不必重新选文件） */
+async function startUpload() {
+  uploadCtrl?.abort()
+  const ctrl = new AbortController()
+  uploadCtrl = ctrl
+  status.value = 'uploading'
+  percent.value = 0
+  videoUrl.value = ''
+  try {
+    // 旧版逻辑：请求体发完但服务端还在存储时不留 100%，避免进度条先满、状态还没完成
+    videoUrl.value = await uploadVideo(
+      props.file,
+      (value) => (percent.value = value >= 100 ? 90 : value),
+      ctrl.signal,
+    )
+    percent.value = 100
+    status.value = 'done'
+  } catch {
+    // 主动中断（换了文件/离开页面）不算失败
+    if (!ctrl.signal.aborted) status.value = 'error'
+  }
+}
+
+onMounted(() => void startUpload())
+onBeforeUnmount(() => uploadCtrl?.abort())
 
 async function onCover(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]
@@ -99,8 +138,12 @@ async function onCover(event: Event) {
  * 若传 0（审核中）稿件将永远不会出现在首页；库中既有 15 条数据也全是 status=1。
  */
 async function submit() {
-  if (!title.value.trim() || !mcId.value || !props.videoUrl) {
+  if (!title.value.trim() || !mcId.value) {
     ElMessage.warning('请完善标题与分区')
+    return
+  }
+  if (status.value !== 'done' || !videoUrl.value) {
+    ElMessage.warning('视频还在上传中，请稍候')
     return
   }
   submitting.value = true
@@ -111,7 +154,7 @@ async function submit() {
       title: title.value.trim(),
       type: type.value,
       auth: 0,
-      duration: props.duration,
+      duration: await durationTask,
       mcId: mcId.value,
       scId: 1,
       status: 1,
@@ -119,7 +162,7 @@ async function submit() {
       tags: tags.value.join(' '),
       descr: descr.value,
       coverUrl: coverUrl.value,
-      videoUrl: props.videoUrl,
+      videoUrl: videoUrl.value,
     })
     emit('done')
   } finally {
@@ -132,27 +175,6 @@ async function submit() {
 @use '@/styles/tokens' as t;
 
 .form {
-  &__head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--line);
-  }
-
-  &__file {
-    font-size: t.$fs-sm;
-    color: var(--text-2);
-  }
-
-  &__reset {
-    border: none;
-    background: transparent;
-    color: var(--link);
-    font-size: t.$fs-xs;
-  }
-
   &__select {
     width: 220px;
   }

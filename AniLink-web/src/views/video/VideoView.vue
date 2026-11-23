@@ -64,11 +64,16 @@ const loading = ref(false)
 const isFollow = ref(false)
 const followBusy = ref(false)
 
+/** 请求序号：快速切换视频时丢弃过期响应，避免旧片数据覆盖新片 */
+let loadSeq = 0
+
 /** 加载页面所需数据；视频本体失败则展示空状态 */
 async function load() {
   const vid = toNumber(route.params.vid)
+  const seq = ++loadSeq
   if (!vid) {
     video.value = null
+    loading.value = false
     return
   }
   loading.value = true
@@ -80,27 +85,30 @@ async function load() {
       fetchVideoStats(vid).catch(() => null),
       fetchDanmuList(vid).catch(() => [] as Danmu[]),
     ])
-    if (!detail) return
+    // 期间已经切到别的稿件：直接丢弃，否则会把旧视频挂到新路由上
+    if (seq !== loadSeq || !detail) return
     video.value = detail
     stats.value = statsData
     store.setStats(statsData)
     danmuList.value = danmu ?? []
-    await loadAuthor(detail.uid)
+    await loadAuthor(detail.uid, seq)
   } finally {
-    loading.value = false
+    if (seq === loadSeq) loading.value = false
   }
 }
 
 /** 作者信息与关注状态（关注态需要登录） */
-async function loadAuthor(uid: number) {
+async function loadAuthor(uid: number, seq: number) {
   const [user, userStats] = await Promise.all([
     fetchUserById({ id: uid }).catch(() => null),
     fetchUserStatsPublic({ id: uid }).catch(() => null),
   ])
+  if (seq !== loadSeq) return
   author.value = user
   authorStats.value = userStats
   if (!userStore.isLogin || !uid) return
   const follow = await fetchFollowState({ followerId: userStore.uid, followeeId: uid }).catch(() => null)
+  if (seq !== loadSeq) return
   isFollow.value = Boolean(follow?.id)
 }
 

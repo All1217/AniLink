@@ -55,6 +55,10 @@ export interface Video {
   descr: string
   coverUrl: string
   videoUrl: string
+  /** HLS 播放列表（m3u8）；为空表示该稿件还没转码，回退 videoUrl 播放 */
+  hlsUrl?: string | null
+  /** 转码状态 0 待转码 / 1 转码中 / 2 已完成 / 3 失败 */
+  transcodeStatus?: number
   uploadDate?: string
   deleteDate?: string
 }

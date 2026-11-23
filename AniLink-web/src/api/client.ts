@@ -113,6 +113,8 @@ http.interceptors.response.use(
     return Promise.reject(result)
   },
   (error: AxiosError<ResultData>) => {
+    // 调用方主动取消（如更换视频时中断上传）：静默失败，不弹错误
+    if (axios.isCancel(error)) return Promise.reject(error)
     const status = error.response?.status ?? 0
     const code = error.response?.data?.code ?? 0
     // 网关异常处理器也可能用 HTTP 状态码透传 601/602

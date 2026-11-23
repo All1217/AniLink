@@ -89,3 +89,11 @@ src/
 
 相关实现见 `src/api/client.ts`（拦截器与单飞续约）与 `src/stores/user.ts`（只持久化 access，不保存 refresh）。
 
+### 视频播放（HLS 分片 + MP4 兜底）
+
+- 播放地址：`vid.hlsUrl`（m3u8）优先，没有转码产物时回退 `videoUrl`（MP4 + HTTP Range 伪流式）。
+- `hls.js` 动态 `import`，只在播放页加载（单独 chunk，不进首屏）；Safari / iOS 走原生 HLS，不加载 hls.js；hls.js 不可用或分片出现致命错误时自动回退 MP4，不会白屏。
+- 播放器参数在 `src/composables/useHls.ts`：6s 分片、`startLevel: -1`（首个分片后按带宽定量）、`capLevelToPlayerSize`（按播放器尺寸限制码率）、缓冲 30s/上限 60s。
+- `BiliPlayer.vue` 另外做了三件事：`poster` 用封面、`preload: 'auto'` 提前缓冲、按媒体域名做 `preconnect` 预热 DNS/TCP。
+- 转码在后端异步完成（`video.transcode_status`），投稿后先播 MP4，转完自动切 HLS；详见根目录 `AGENTS.md`。
+

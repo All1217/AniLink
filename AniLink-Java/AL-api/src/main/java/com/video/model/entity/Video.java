@@ -68,6 +68,14 @@ public class Video implements Serializable {
     @TableField(value = "video_url")
     private String videoUrl;
 
+    @Schema(description = "HLS 播放列表地址，为空表示暂时直接播放 MP4")
+    @TableField(value = "hls_url")
+    private String hlsUrl;
+
+    @Schema(description = "HLS 转码状态 0待转码 1转码中 2已完成 3失败")
+    @TableField(value = "transcode_status")
+    private Integer transcodeStatus;
+
     @Schema(description = "状态")
     @TableField(value = "status")
     private Integer status;

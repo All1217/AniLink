@@ -1,6 +1,6 @@
 <template>
   <div class="upload-panel">
-    <!-- ① 选文件 -->
+    <!-- ① 选文件：选中后立刻进入信息页，上传在那边进行 -->
     <section v-if="step === 'select'">
       <div
         class="zone"
@@ -15,14 +15,12 @@
         <p class="zone__tip">支持 mp4 / webm / mov，单个文件建议不超过 1GB</p>
         <input ref="inputRef" type="file" accept="video/*" hidden @change="onPick" />
       </div>
-      <el-progress v-if="uploading" :percentage="percent" :stroke-width="10" class="zone__progress" />
     </section>
 
-    <!-- ② 填表单 -->
+    <!-- ② 填表单：上传进度在页面顶部 -->
     <UploadForm
-      v-else-if="step === 'form'"
-      :video-url="videoUrl"
-      :duration="duration"
+      v-else-if="step === 'form' && file"
+      :file="file"
       :file-name="fileName"
       @reset="reset"
       @done="step = 'done'"
@@ -44,71 +42,37 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { UploadFilled } from '@element-plus/icons-vue'
 import UploadForm from './UploadForm.vue'
-import { uploadVideo } from '@/api/upload'
 
 const router = useRouter()
 
 const step = ref<'select' | 'form' | 'done'>('select')
 const dragging = ref(false)
-const uploading = ref(false)
-const percent = ref(0)
+const file = ref<File | null>(null)
 const fileName = ref('')
-const videoUrl = ref('')
-const duration = ref(0)
 const inputRef = ref<HTMLInputElement | null>(null)
 
-/** 读取视频时长（提交时后端需要秒数） */
-function readDuration(file: File): Promise<number> {
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(file)
-    const video = document.createElement('video')
-    video.preload = 'metadata'
-    video.onloadedmetadata = () => {
-      const value = video.duration
-      URL.revokeObjectURL(url)
-      resolve(Number.isFinite(value) ? Math.round(value) : 0)
-    }
-    video.onerror = () => {
-      URL.revokeObjectURL(url)
-      resolve(0)
-    }
-    video.src = url
-  })
-}
-
 function onPick(event: Event) {
-  void startUpload((event.target as HTMLInputElement).files)
+  enterForm((event.target as HTMLInputElement).files)
 }
 
 function onDrop(event: DragEvent) {
   dragging.value = false
-  void startUpload(event.dataTransfer?.files ?? null)
+  enterForm(event.dataTransfer?.files ?? null)
 }
 
-/** 上传视频：拿到 URL 后进入表单 */
-async function startUpload(files: FileList | null) {
-  const file = files?.[0]
-  if (!file) return
-  fileName.value = file.name
-  duration.value = await readDuration(file)
-  uploading.value = true
-  percent.value = 0
-  try {
-    videoUrl.value = await uploadVideo(file, (value) => (percent.value = value))
-    step.value = 'form'
-  } catch {
-    step.value = 'select'
-  } finally {
-    uploading.value = false
-  }
+/** 选中文件即切到填写页（与旧版 Upload → EditUpload 一致），不在这里等上传 */
+function enterForm(files: FileList | null) {
+  const picked = files?.[0]
+  if (!picked) return
+  file.value = picked
+  fileName.value = picked.name
+  step.value = 'form'
 }
 
 function reset() {
   step.value = 'select'
-  videoUrl.value = ''
+  file.value = null
   fileName.value = ''
-  duration.value = 0
-  percent.value = 0
   if (inputRef.value) inputRef.value.value = ''
 }
 </script>
@@ -147,10 +111,6 @@ function reset() {
 
   &__tip {
     font-size: t.$fs-xs;
-  }
-
-  &__progress {
-    margin-top: 20px;
   }
 }
 

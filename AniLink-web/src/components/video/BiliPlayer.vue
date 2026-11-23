@@ -19,7 +19,9 @@ import artplayerPluginDanmuku, { type Danmu as PluginDanmu, type Mode } from 'ar
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { useWebSocket } from '@/composables/useWebSocket'
-import { updateProgress } from '@/api/history'
+import { createHlsPlayer, preconnect } from '@/composables/useHls'
+import { throttleProgressSeek } from '@/composables/useSeekThrottle'
+import { usePlayProgress } from '@/composables/usePlayProgress'
 import { createDanmu } from '@/api/danmu'
 import { DateStringType, type CountMessageDTO, type CountMessageVO, type Danmu, type Video } from '@/types'
 import { formatDate } from '@/utils/format'
@@ -34,7 +36,15 @@ const watchCount = ref(0)
 const danmuCount = ref(0)
 const instance = ref<Artplayer | null>(null)
 
-let progressTimer: number | undefined
+/** 播放地址：优先 HLS 分片（6s 一段、按需加载），还没转码的稿件回退原 MP4 */
+const playUrl = computed(() => props.video.hlsUrl || props.video.videoUrl || '')
+/** m3u8 交给 hls.js（Safari 走原生 HLS），出错时自动回退 MP4 */
+const hls = createHlsPlayer(props.video.videoUrl)
+/** 观看进度上报（进入播放即上报 + 每 3 秒一次） */
+const progress = usePlayProgress(() => instance.value, () => props.video)
+
+/** 拖动进度条节流的解绑函数（Artplayer 实例创建后注册） */
+let detachSeek: (() => void) | null = null
 
 const danmuku = computed<PluginDanmu[]>(() =>
   props.danmuList.map((item) => ({
@@ -81,50 +91,12 @@ function onEmitDanmu(danmu: PluginDanmu) {
  * 开始播放：
  * 1) 通知父组件播放量 +1
  * 2) 立即上报一次观看进度 + 每 3 秒继续上报
- *
- * 注意：
- * - 观看历史不要另外调 `history/add`——`bh_video` 上有唯一索引 (uid, vid)，
- *   而 `record/add` 本身就是「有则更新、无则插入」的 upsert，重复插入会撞唯一键；
- * - 后端目前没有"记录播放量"的接口（`/main/video/.../play` 在 VideoController 里不存在），
- *   所以这里不做播放量上报，避免每次播放都产生 404/305 的报错。
  */
 function onPlayStart() {
   emit('played')
   if (!userStore.isLogin) return
-  reportProgress()
-  startProgressLoop()
-}
-
-/** 上报当前位置：后端把它写成「上次观看到哪个节点」（bh_video.duration） */
-function reportProgress() {
-  const current = instance.value?.currentTime ?? 0
-  if (!props.video.vid) return
-  void updateProgress({
-    vid: props.video.vid,
-    duration: props.video.duration,
-    moment: Math.floor(current),
-    commitTime: formatDate(Date.now(), DateStringType.ALL),
-  }).catch(() => undefined)
-}
-
-/** 每 3 秒上报一次播放进度 */
-function startProgressLoop() {
-  if (progressTimer) return
-  progressTimer = window.setInterval(() => {
-    const current = instance.value?.currentTime ?? 0
-    if (!current || !props.video.vid) return
-    void updateProgress({
-      vid: props.video.vid,
-      duration: props.video.duration,
-      moment: Math.floor(current),
-      commitTime: formatDate(Date.now(), DateStringType.ALL),
-    }).catch(() => undefined)
-  }, 3000)
-}
-
-function stopProgressLoop() {
-  if (progressTimer) window.clearInterval(progressTimer)
-  progressTimer = undefined
+  progress.report()
+  progress.start()
 }
 
 // 在线人数：登录后加入房间，服务端按心跳统计
@@ -137,9 +109,12 @@ const { connect: connectWs, close: closeWs } = useWebSocket<CountMessageVO>('/vi
 })
 
 watch(
-  () => props.video.videoUrl,
+  () => playUrl.value,
   (url) => {
-    if (url && instance.value) instance.value.switch = url
+    if (!instance.value || !url) return
+    // 换源前先销毁旧实例，避免 MSE 与新的 src 并存
+    hls.destroy()
+    instance.value.switch = url
   },
   { immediate: true },
 )
@@ -154,13 +129,20 @@ watch(danmuku, (list) => {
 onMounted(async () => {
   await nextTick()
   if (!container.value) return
+  preconnect(playUrl.value)
   instance.value = new Artplayer({
     container: container.value,
-    url: props.video.videoUrl || '',
+    url: playUrl.value,
+    type: props.video.hlsUrl ? 'm3u8' : undefined,
+    customType: hls.customType,
+    poster: props.video.coverUrl,
+    autoplay: false,
     autoSize: true,
     fullscreen: true,
     fullscreenWeb: true,
     autoOrientation: true,
+    // 默认 preload 是 metadata（点播放才拉流），这里提前缓冲以缩短首帧时间
+    moreVideoAttr: { controls: false, preload: 'auto', playsInline: true },
     plugins: [
       artplayerPluginDanmuku({
         danmuku: danmuku.value,
@@ -172,14 +154,20 @@ onMounted(async () => {
   })
   danmuCount.value = danmuku.value.length
   instance.value.on('play', onPlayStart)
-  instance.value.on('pause', stopProgressLoop)
+  instance.value.on('pause', progress.stop)
+  // 拖动进度条只在松手时 seek，避免 MSE 连续重载分片（见 useSeekThrottle）
+  detachSeek = throttleProgressSeek(instance.value)
 
   if (userStore.isLogin) connectWs()
 })
 
 onBeforeUnmount(() => {
-  stopProgressLoop()
+  progress.stop()
   closeWs()
+  detachSeek?.()
+  detachSeek = null
+  // Artplayer 不会调用 customType 的返回值，必须自己销毁 hls 实例
+  hls.destroy()
   instance.value?.destroy(false)
   instance.value = null
 })

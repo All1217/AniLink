@@ -98,8 +98,10 @@ public class HistoryServiceImpl extends ServiceImpl<HistoryMapper, BrowseHistory
                 .eq(BrowseHistory::getVid, vid)
                 .eq(BrowseHistory::getUid, uid)
                 .one();
-        // 4.写入缓存
-        taskHandler.writeRecordCache(record);
+        // 4.有旧记录才写缓存：首次播放（record 为空）本来就没有旧记录可缓存
+        if (record != null) {
+            taskHandler.writeRecordCache(record);
+        }
         return record;
     }
 }

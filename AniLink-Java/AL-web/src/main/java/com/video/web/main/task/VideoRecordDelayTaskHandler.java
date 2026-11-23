@@ -73,6 +73,10 @@ public class VideoRecordDelayTaskHandler {
     }
 
     public void writeRecordCache(BrowseHistory record) {
+        // 空记录（首次播放没有旧进度）或字段不全时不写缓存，避免 NPE 与脏 key
+        if (record == null || record.getId() == null || record.getVid() == null || record.getUid() == null) {
+            return;
+        }
         //写缓存
         log.debug("更新视频播放记录的缓存数据");
         try {
@@ -84,8 +88,7 @@ public class VideoRecordDelayTaskHandler {
             // 3.添加缓存过期时间
             redisTemplate.expire(key, Duration.ofMinutes(1));
         } catch (Exception e) {
-            log.error("更新视频播放记录缓存异常", e);
-            e.printStackTrace();
+            log.warn("更新视频播放记录缓存失败，vid={}, uid={}", record.getVid(), record.getUid(), e);
         }
     }
 
