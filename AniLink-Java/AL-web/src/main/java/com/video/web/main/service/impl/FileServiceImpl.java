@@ -5,7 +5,6 @@ import com.video.common.result.Result;
 import com.video.web.main.service.FileService;
 import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MinioClient;
-import io.minio.ObjectWriteResponse;
 import io.minio.PutObjectArgs;
 import io.minio.http.Method;
 import lombok.extern.slf4j.Slf4j;
@@ -51,7 +50,7 @@ public class FileServiceImpl implements FileService {
         String ext = oriFileName.substring(oriFileName.lastIndexOf("."));
         String objectName = UUID.randomUUID() + ext;
         try {
-            ObjectWriteResponse response = minioClient.putObject(
+            minioClient.putObject(
                     PutObjectArgs.builder()
                             .bucket(bucketName)
                             .object(objectName)
@@ -61,8 +60,7 @@ public class FileServiceImpl implements FileService {
                             .build()
             );
         } catch (Exception e) {
-            log.error("上传文件失败！");
-            System.out.println(e);
+            log.error("上传文件失败：bucket={}, object={}", bucketName, objectName, e);
             return Result.fail(APP_SERVER_ERROR.getCode(), "上传文件失败！");
         }
 
@@ -84,8 +82,7 @@ public class FileServiceImpl implements FileService {
                     objectName
             );
         } catch (Exception e) {
-            log.error("上传文件失败！");
-            System.out.println(e);
+            log.error("生成文件访问地址失败：bucket={}, object={}", bucketName, objectName, e);
             return Result.fail(APP_SERVER_ERROR.getCode(), "上传文件失败！");
         }
         return Result.ok(filePath);

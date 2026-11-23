@@ -45,6 +45,10 @@ al:
     enabled: ${AL_TRANSCODE_ENABLED:true}
     # 本机 ffmpeg；换机器用环境变量 AL_FFMPEG_PATH 覆盖（也可直接填 PATH 里的 ffmpeg）
     ffmpeg-path: ${AL_FFMPEG_PATH:E:/Program files (x86)/ffmpeg/bin/ffmpeg.exe}
+    # ffprobe 为空时取 ffmpeg 同目录（用来读源码率，决定转码码率上限）
+    ffprobe-path: ${AL_FFPROBE_PATH:}
+    # 单个稿件视频码率上限（kbps），实际取 min(源码率*1.15, 该值)
+    max-bitrate-kbps: ${AL_TRANSCODE_MAX_KBPS:6000}
     tmp-dir: ${AL_TRANSCODE_TMP:}
     preset: ${AL_TRANSCODE_PRESET:veryfast}
     crf: ${AL_TRANSCODE_CRF:21}

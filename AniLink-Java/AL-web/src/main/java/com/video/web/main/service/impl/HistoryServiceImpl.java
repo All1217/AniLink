@@ -13,6 +13,7 @@ import com.video.web.main.vo.HistoryQueryVo;
 import com.video.web.main.vo.HistoryVo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.sql.Timestamp;
@@ -62,28 +63,44 @@ public class HistoryServiceImpl extends ServiceImpl<HistoryMapper, BrowseHistory
         Long uid = loginUser.getUserId();
         // 1.查询旧的观看记录
         BrowseHistory old = queryOldRecord(formDTO.getVid(), uid);
-        // 2.判断是否存在
+        // 2.不存在则新增，存在则更新
         if (old == null) {
-            // 3.不存在,则新增
-            // 3.1.转换PO
-            BrowseHistory record = new BrowseHistory();
-            record.setVid(formDTO.getVid());
-            record.setUid(uid);
-            record.setViewTime(Timestamp.valueOf(formDTO.getCommitTime()));
-            record.setDuration(formDTO.getMoment());
-            // 3.写入数据库
+            return insertRecord(formDTO, uid);
+        }
+        updateRecord(formDTO, uid, old.getId());
+        return true;
+    }
+
+    /** 首次播放：直接落库；并发下另一个请求可能已经插入，撞唯一键时退化成更新 */
+    private boolean insertRecord(VideoRecordFormDTO formDTO, Long uid) {
+        BrowseHistory record = new BrowseHistory();
+        record.setVid(formDTO.getVid());
+        record.setUid(uid);
+        record.setViewTime(Timestamp.valueOf(formDTO.getCommitTime()));
+        record.setDuration(formDTO.getMoment());
+        try {
             historyMapper.insert(record);
             return false;
+        } catch (DuplicateKeyException e) {
+            // 快速切视频 / 多标签页同时首次上报：唯一键 (uid, vid) 已被写入，按已存在处理
+            BrowseHistory exists = queryOldRecord(formDTO.getVid(), uid);
+            if (exists == null) {
+                throw e;
+            }
+            updateRecord(formDTO, uid, exists.getId());
+            return true;
         }
-        // 4.存在,则更新
+    }
+
+    /** 已有记录：写进度缓存 + 延迟 10 秒落库，避免每次上报都打数据库 */
+    private void updateRecord(VideoRecordFormDTO formDTO, Long uid, Long id) {
         BrowseHistory record = new BrowseHistory();
         record.setVid(formDTO.getVid());
         record.setUid(uid);
         record.setDuration(formDTO.getMoment());
-        record.setId(old.getId());
+        record.setId(id);
         // TODO: 目前业务无法统计某个视频累计播放时长，也就无法统计完播率
         taskHandler.addVideoRecordTask(record);
-        return true;
     }
 
     private BrowseHistory queryOldRecord(Long vid, Long uid) {

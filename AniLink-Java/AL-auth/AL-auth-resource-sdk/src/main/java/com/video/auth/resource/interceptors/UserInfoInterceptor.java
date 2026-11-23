@@ -26,7 +26,6 @@ public class UserInfoInterceptor implements HandlerInterceptor {
             return true;
         } catch (NumberFormatException e) {
             log.error("用户身份信息格式不正确，{}, 原因：{}", userID, e.getMessage());
-            e.printStackTrace();
             return true;
         }
     }

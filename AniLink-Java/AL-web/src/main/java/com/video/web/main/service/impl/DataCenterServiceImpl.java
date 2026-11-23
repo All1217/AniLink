@@ -130,7 +130,7 @@ public class DataCenterServiceImpl implements DataCenterService {
                 res = (List<HotSearch>) json.get("list");
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.warn("读取热搜缓存失败", e);
         }
         return res;
     }

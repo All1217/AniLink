@@ -22,9 +22,13 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * HLS 转码：MinIO 拉源 → ffmpeg 重封装 faststart + 转 fMP4 分片 → 回传 hls/{vid}/。
@@ -117,7 +121,9 @@ public class TranscodeServiceImpl implements TranscodeService {
             // ② 转 fMP4 分片 HLS：进程工作目录 = 产物目录，init.mp4 才会落在播放列表旁边
             File hlsDir = new File(workDir, "hls");
             if (!hlsDir.mkdirs()) throw new IOException("无法创建 HLS 产物目录：" + hlsDir);
-            FfmpegRunner.run(hlsCommand(faststart), hlsDir, properties.getTimeoutMinutes());
+            int capKbps = bitrateCap(video.getVideoUrl());
+            log.info("稿件 {} 转码：视频码率上限 {} kbps", video.getVid(), capKbps);
+            FfmpegRunner.run(hlsCommand(faststart, capKbps), hlsDir, properties.getTimeoutMinutes());
 
             // ③ 分片与 m3u8 回传 MinIO
             return uploadHls(video.getVid(), hlsDir);
@@ -131,8 +137,8 @@ public class TranscodeServiceImpl implements TranscodeService {
         return new ArrayList<>(List.of(properties.getFfmpegPath(), "-y", "-hide_banner", "-loglevel", "error"));
     }
 
-    /** HLS 转码参数：6s 分片、强制按分片边界打关键帧、音频统一 AAC */
-    private List<String> hlsCommand(File source) {
+    /** HLS 转码参数：6s 分片、强制按分片边界打关键帧、音频统一 AAC，视频码率按上限封顶 */
+    private List<String> hlsCommand(File source, int maxKbps) {
         int segment = Math.max(2, properties.getSegmentSeconds());
         return List.of(
                 properties.getFfmpegPath(), "-y", "-hide_banner", "-loglevel", "error",
@@ -140,6 +146,9 @@ public class TranscodeServiceImpl implements TranscodeService {
                 "-c:v", "libx264",
                 "-preset", properties.getPreset(),
                 "-crf", String.valueOf(properties.getCrf()),
+                // CRF 搭配 maxrate/bufsize：画质按 CRF 走，但整段码率不超过上限
+                "-maxrate", maxKbps + "k",
+                "-bufsize", maxKbps * 2 + "k",
                 "-pix_fmt", "yuv420p",
                 "-force_key_frames", "expr:gte(t,n_forced*" + segment + ")",
                 "-sc_threshold", "0",
@@ -152,6 +161,50 @@ public class TranscodeServiceImpl implements TranscodeService {
                 "-hls_segment_filename", "seg_%04d.m4s",
                 "index.m3u8"
         );
+    }
+
+    /** 码率上限：取源码率的 1.15 倍，避免重编码把已压过的视频码率抬上去，并受配置上限约束 */
+    private int bitrateCap(String url) {
+        long sourceBitrate = probeSourceBitrate(url);
+        int cap = sourceBitrate > 0
+                ? (int) Math.round(sourceBitrate / 1000.0 * 1.15)
+                : properties.getMaxBitrateKbps();
+        return Math.max(300, Math.min(cap, properties.getMaxBitrateKbps()));
+    }
+
+    /** 用 ffprobe 读源码率（bit/s）；读不到返回 0，由调用方回退到配置上限 */
+    private long probeSourceBitrate(String url) {
+        List<String> command = List.of(ffprobePath(), "-v", "error",
+                "-select_streams", "v:0",
+                "-show_entries", "stream=bit_rate:format=bit_rate",
+                "-of", "default=noprint_wrappers=1:nokey=1", url);
+        try {
+            Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
+            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            if (!process.waitFor(30, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                return 0;
+            }
+            for (String line : output.split("\\R")) {
+                String text = line.trim();
+                if (text.matches("\\d+")) return Long.parseLong(text);
+            }
+        } catch (Exception e) {
+            log.debug("ffprobe 读取源码率失败：{}", e.getMessage());
+        }
+        return 0;
+    }
+
+    /** ffprobe 路径：优先配置，否则取 ffmpeg 同目录（ffmpeg.exe → ffprobe.exe） */
+    private String ffprobePath() {
+        String configured = properties.getFfprobePath();
+        if (StringUtils.hasText(configured)) return configured;
+        Path ffmpeg = Path.of(properties.getFfmpegPath());
+        Path parent = ffmpeg.getParent();
+        if (parent == null) return "ffprobe";
+        String name = ffmpeg.getFileName().toString().replace("ffmpeg", "ffprobe");
+        Path probe = parent.resolve(name);
+        return Files.exists(probe) ? probe.toString() : "ffprobe";
     }
 
     /** 回写 faststart 后的 MP4，覆盖原对象（可用性优先，失败不阻断 HLS） */

@@ -16,6 +16,10 @@ public class TranscodeProperties {
     private boolean enabled = true;
     /** ffmpeg 可执行文件；换机器时用环境变量 AL_FFMPEG_PATH 覆盖 */
     private String ffmpegPath = "ffmpeg";
+    /** ffprobe 可执行文件；为空则取 ffmpeg 同目录下的 ffprobe（用来读源码率） */
+    private String ffprobePath = "";
+    /** 视频码率上限（kbps）：重编码不允许把码率抬得比源码率高出太多 */
+    private int maxBitrateKbps = 6000;
     /** 临时目录，为空则用系统临时目录下的 anilink-hls */
     private String tmpDir = "";
     /** x264 预设：越慢画质越好，veryfast 用于本地开发 */
