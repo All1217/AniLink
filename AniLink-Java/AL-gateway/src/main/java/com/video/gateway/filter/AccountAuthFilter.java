@@ -31,7 +31,14 @@ public class AccountAuthFilter implements GlobalFilter, Ordered {
         String path = request.getPath().toString();
         // 2.透传真实客户端 IP：登录/注册限流的 IP 维度要用，注意免登录路径也要带上
         String clientIp = resolveClientIp(request);
-        ServerWebExchange mutated = exchange;
+        // 2.1 清除客户端伪造的身份与 IP 头，只保留网关校验后的值
+        ServerWebExchange mutated = exchange.mutate()
+                .request(builder -> builder.headers(headers -> {
+                    headers.remove(USER_ID);
+                    headers.remove("X-Real-IP");
+                    headers.remove("X-Forwarded-For");
+                }))
+                .build();
         if (clientIp != null) {
             mutated = mutated.mutate().request(builder -> builder.header("X-Real-IP", clientIp)).build();
         }
@@ -56,16 +63,16 @@ public class AccountAuthFilter implements GlobalFilter, Ordered {
         return chain.filter(mutated);
     }
 
-    /** 取客户端 IP：优先 X-Forwarded-For 第一段，否则取连接对端地址 */
+    /** 取客户端 IP：直连时以连接对端为准，避免客户端伪造 X-Forwarded-For 绕过限流 */
     private String resolveClientIp(ServerHttpRequest request) {
+        if (request.getRemoteAddress() != null) {
+            return request.getRemoteAddress().getAddress().getHostAddress();
+        }
         String forwarded = request.getHeaders().getFirst("X-Forwarded-For");
         if (forwarded != null && !forwarded.isBlank()) {
             return forwarded.split(",")[0].trim();
         }
-        if (request.getRemoteAddress() == null) {
-            return null;
-        }
-        return request.getRemoteAddress().getAddress().getHostAddress();
+        return null;
     }
 
     @Override
