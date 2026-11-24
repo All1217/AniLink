@@ -41,10 +41,8 @@ public class ResourceInterceptorConfiguration implements WebMvcConfigurer {
         if (CollUtil.isNotEmpty(authProperties.getIncludeLoginPaths())) {
             registration.addPathPatterns(authProperties.getIncludeLoginPaths());
         }
-        // 2.2.添加排除路径：未显式配置时使用网关共用的白名单
-        List<String> excludePatterns = CollUtil.isNotEmpty(authProperties.getExcludeLoginPaths())
-                ? authProperties.getExcludeLoginPaths()
-                : AuthPaths.EXCLUDE_PATTERNS;
+        // 2.2.添加排除路径：共享白名单与自定义配置取并集
+        List<String> excludePatterns = AuthPaths.withCustom(authProperties.getExcludeLoginPaths());
         registration.excludePathPatterns(excludePatterns.toArray(String[]::new));
         // 2.3.排除swagger路径
         registration.excludePathPatterns(

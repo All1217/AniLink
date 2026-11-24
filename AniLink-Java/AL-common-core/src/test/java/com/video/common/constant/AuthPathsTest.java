@@ -2,6 +2,8 @@ package com.video.common.constant;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class AuthPathsTest {
@@ -20,5 +22,13 @@ class AuthPathsTest {
         assertFalse(AuthPaths.isExcluded("/main/user/info"));
         assertFalse(AuthPaths.isExcluded("/main/video/pageVideo"));
         assertFalse(AuthPaths.isExcluded("/remark/like"));
+    }
+
+    @Test
+    void customPatternsAreAppendedToSharedOnes() {
+        List<String> merged = AuthPaths.withCustom(List.of("/main/demo/**"));
+
+        assertTrue(merged.contains("/main/login/**"));
+        assertTrue(merged.contains("/main/demo/**"));
     }
 }
