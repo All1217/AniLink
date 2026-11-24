@@ -3,6 +3,7 @@ package com.video.auth.resource.config;
 import cn.hutool.core.collection.CollUtil;
 import com.video.auth.resource.interceptors.LoginAuthInterceptor;
 import com.video.auth.resource.interceptors.UserInfoInterceptor;
+import com.video.common.constant.AuthPaths;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -10,6 +11,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.web.servlet.config.annotation.InterceptorRegistration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import java.util.List;
 
 @Slf4j
 @AutoConfiguration
@@ -38,10 +41,11 @@ public class ResourceInterceptorConfiguration implements WebMvcConfigurer {
         if (CollUtil.isNotEmpty(authProperties.getIncludeLoginPaths())) {
             registration.addPathPatterns(authProperties.getIncludeLoginPaths());
         }
-        // 2.2.添加排除路径
-        if (CollUtil.isNotEmpty(authProperties.getExcludeLoginPaths())) {
-            registration.excludePathPatterns(authProperties.getExcludeLoginPaths());
-        }
+        // 2.2.添加排除路径：未显式配置时使用网关共用的白名单
+        List<String> excludePatterns = CollUtil.isNotEmpty(authProperties.getExcludeLoginPaths())
+                ? authProperties.getExcludeLoginPaths()
+                : AuthPaths.EXCLUDE_PATTERNS;
+        registration.excludePathPatterns(excludePatterns.toArray(String[]::new));
         // 2.3.排除swagger路径
         registration.excludePathPatterns(
                 "/v2/**",
