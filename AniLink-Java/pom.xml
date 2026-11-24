@@ -26,6 +26,7 @@
         <module>AL-comment</module>
         <module>AL-danmaku</module>
         <module>AL-datacenter</module>
+        <module>AL-architecture-test</module>
         <module>AL-web</module>
         <module>AL-remark</module>
         <module>AL-gateway</module>
