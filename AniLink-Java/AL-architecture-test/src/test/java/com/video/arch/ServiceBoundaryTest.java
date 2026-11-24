@@ -6,6 +6,7 @@ import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 
 import java.util.Arrays;
+import java.util.stream.Stream;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
@@ -16,6 +17,12 @@ class ServiceBoundaryTest {
             "com.video.user..", "com.video.video..", "com.video.playback..",
             "com.video.social..", "com.video.comment..", "com.video.danmaku..",
             "com.video.datacenter.."
+    };
+
+    /** 迁移期仍存在的实现包；新服务不得反向依赖它们。 */
+    private static final String[] LEGACY = {
+            "com.video.web..", "com.video.remark..",
+            "com.video.communication..", "com.video.gateway.."
     };
 
     @ArchTest
@@ -34,8 +41,9 @@ class ServiceBoundaryTest {
     static final ArchRule datacenter_is_independent = ruleFor("com.video.datacenter..");
 
     private static ArchRule ruleFor(String ownPackage) {
-        String[] others = Arrays.stream(SERVICES)
-                .filter(pkg -> !pkg.equals(ownPackage))
+        String[] others = Stream.concat(
+                        Arrays.stream(SERVICES).filter(pkg -> !pkg.equals(ownPackage)),
+                        Arrays.stream(LEGACY))
                 .toArray(String[]::new);
         return noClasses().that().resideInAPackage(ownPackage)
                 .should().dependOnClassesThat().resideInAnyPackage(others)
