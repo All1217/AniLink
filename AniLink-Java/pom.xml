@@ -15,7 +15,6 @@
         <module>AL-common-mq</module>
         <module>AL-common-redis</module>
         <module>AL-common-mybatis</module>
-        <module>AL-common</module>
         <module>AL-user</module>
         <module>AL-user-api</module>
         <module>AL-video</module>

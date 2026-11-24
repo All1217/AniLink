@@ -18,10 +18,11 @@
     </properties>
 
     <dependencies>
-        <!--mybatis-plus-->
+        <!--mybatis-plus 注解（实体仅使用 @TableName/@TableId 等，不引入运行期 starter）-->
         <dependency>
             <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-boot-starter</artifactId>
+            <artifactId>mybatis-plus-annotation</artifactId>
+            <version>${mybatis-plus.version}</version>
         </dependency>
         <dependency>
             <groupId>com.github.xiaoymin</groupId>

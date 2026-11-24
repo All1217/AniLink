@@ -30,7 +30,7 @@
         </dependency>
         <dependency>
             <groupId>com.video</groupId>
-            <artifactId>AL-common</artifactId>
+            <artifactId>AL-common-core</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
     </dependencies>
