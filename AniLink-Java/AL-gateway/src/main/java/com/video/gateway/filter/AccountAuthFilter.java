@@ -42,13 +42,14 @@ public class AccountAuthFilter implements GlobalFilter, Ordered {
         String path = request.getPath().toString();
         // 2.透传真实客户端 IP：登录/注册限流的 IP 维度要用，注意免登录路径也要带上
         String clientIp = resolveClientIp(request);
+        ServerWebExchange mutated = exchange;
         if (clientIp != null) {
-            exchange.mutate().request(builder -> builder.header("X-Real-IP", clientIp)).build();
+            mutated = mutated.mutate().request(builder -> builder.header("X-Real-IP", clientIp)).build();
         }
         // 3.判断是否是无需登录的路径
         if (isExcludePath(path)) {
             // 直接放行
-            return chain.filter(exchange);
+            return chain.filter(mutated);
         }
         // 4.尝试获取token
         List<String> authHeaders = exchange.getRequest().getHeaders().get(AUTHORIZATION_HEADER);
@@ -58,12 +59,12 @@ public class AccountAuthFilter implements GlobalFilter, Ordered {
         Long userId = claims.get(JWT_PAYLOAD_USER_ID, Long.class);
         // 6.如果用户是登录状态，尝试更新请求头，传递用户信息
         if (userId != null) {
-            exchange.mutate()
+            mutated = mutated.mutate()
                     .request(builder -> builder.header(USER_ID, userId.toString()))
                     .build();
         }
         // 7.放行
-        return chain.filter(exchange);
+        return chain.filter(mutated);
     }
 
     /** 取客户端 IP：优先 X-Forwarded-For 第一段，否则取连接对端地址 */
