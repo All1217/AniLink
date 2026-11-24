@@ -8,7 +8,7 @@ AniLink 是一个仿 B 站（bilibili）的视频社区全栈项目，原为三�
 
 默认以资深 Spring Cloud + Vue 3 + Python 算法工程师的标准判断与实现。
 
-- 主链路：浏览器 → Vue 3 SPA（dev 8080，`/api` 反代）→ 网关 `AL-gateway`（8090）→ `/main/**` 到 `AL-web`（8022）、`/remark/**` 到 `AL-remark`（8021）；点赞/评论/收藏/历史走 MySQL + Redis + RabbitMQ，聊天与弹幕走 `AL-communication`（8023 + Netty 8024 的 WebSocket）。
+- 主链路：浏览器 → Vue 3 SPA（dev 8080，`/api` 反代）→ 网关 `AL-gateway`（8090）→ `/main/**` 到 `AL-web`（8022，迁移期）、`/remark/**` 到 `AL-remark`（8021）；点赞/评论/收藏/历史走 MySQL + Redis + RabbitMQ，聊天与弹幕走 `AL-communication`（8023 + Netty 8024 的 WebSocket）。
 - 画像/推荐：`AniLink-AlgorithmEngine`（Flask，5000）消费 RabbitMQ 消息、共享 Redis 缓存、按 REST 提供 `/recommendations/<user_id>`，定时任务（APScheduler，120s 一轮）刷新行为标签、质量阈值与标签向量。
 - 鉴权：双令牌（`access-token` 30 分钟放请求头 + `refresh-token` 7 天滑动放 HttpOnly Cookie），两者用 `typ` claim 区分；网关 `AccountAuthFilter` 只认 access，`AL-web` 的 `/main/public/refresh` 只认 refresh 并按 jti 轮换（5 秒宽限、重用即吊销全端）；`AL-auth` 的 resource-sdk 拦截器（`LoginAuthInterceptor` / `UserInfoInterceptor` / `FeignRelayUserInterceptor`）只依赖网关透传的 `user-id` 头，`al.auth.resource.enable` 控制是否启用，免登录路径由 `AL-web` 的 `al.auth.resource.exclude-login-paths` 声明。状态码：305 未登录 / 601 过期可续约 / 602 非法需重登。
 - 账号体系：`user.username` 是用户自选的登录名（唯一、大小写不敏感、本期不可改，2-20 位中英文/数字/下划线且不能纯数字），`user.nickname` 仅用于展示（可重复、可改）；密码用 bcrypt（Hutool `BCrypt`，cost 10）存储，历史 MD5 在登录成功时就地升级；登录失败统一返回 307 且按「账号 5 次 / IP 20 次（15 分钟窗口）」限流（212），改密接口需校验旧密码并吊销全部会话。
@@ -20,6 +20,7 @@ AniLink 是一个仿 B 站（bilibili）的视频社区全栈项目，原为三�
 | 路径 | 作用 |
 | --- | --- |
 | `AniLink-Java/` | 后端微服务（Maven 多模块），`Spring Boot 3.0.5` + `Spring Cloud Alibaba`，包根 `com.video` |
+| `AniLink-Java/AL-user` 等 | 拆分后的服务骨架（Phase 0，尚未启用）：`AL-user`(8025)、`AL-video`(8026)、`AL-playback`(8027)、`AL-comment`(8028)、`AL-danmaku`(8029/WS 8030)、`AL-social`(8031)、`AL-datacenter`(8032)；公共模块 `AL-common-*`；契约模块 `AL-*-api` |
 | `AniLink-Vue3/` | 旧前端 SPA（Vue CLI 5 + Vue 3 + TS + Less，dev 8080），**只作对照，不再改动** |
 | `AniLink-web/` | 新前端（Vite 6 + Vue 3.5 + SCSS，dev 5173），重写中，进度见 `docs/AniLink-web重构计划.md` |
 | `AniLink-AlgorithmEngine/` | 用户画像与推荐引擎（Flask），入口 `src/main.py` |
@@ -28,7 +29,7 @@ AniLink 是一个仿 B 站（bilibili）的视频社区全栈项目，原为三�
 | `.dsh-bundles/mcp-database/` | DSH 的配置型插件，把上面的 MCP 接进 DeepSeek Harness |
 | `logs/` | 本地命令输出（gitignore），如 `git-bash-log.txt` |
 
-后端模块：`AL-gateway`（网关，reactive）、`AL-web`（视频/用户/评论/弹幕/粉丝/收藏/历史/数据中心）、`AL-remark`（点赞）、`AL-communication`（WebSocket 聊天）、`AL-auth`（`AL-auth-resource-sdk`，鉴权 starter）、`AL-common`（配置/常量/异常/登录/redis/result/utils/mq）、`AL-api`（共享 entity/dto）。
+后端模块：`AL-gateway`（网关，reactive）、`AL-web`（视频/用户/评论/弹幕/粉丝/收藏/历史/数据中心，迁移期）、`AL-remark`（点赞）、`AL-communication`（WebSocket 聊天）、`AL-auth`（`AL-auth-resource-sdk`，鉴权 starter）、`AL-api`（共享 entity/dto）。`AL-common` 已拆为 `AL-common-core` / `AL-common-web` / `AL-common-mq` / `AL-common-redis` / `AL-common-mybatis`；新增 `AL-user` / `AL-video` / `AL-playback` / `AL-social` / `AL-comment` / `AL-danmaku` / `AL-datacenter` 与 `AL-*-api` 契约模块（Phase 0 骨架，Phase 1–4 启用）。
 
 `AL-web` 内部分层：`controller` / `service` / `mapper` / `vo` / `mq` / `task` / `config`；实体与 DTO 在 `AL-api`。
 前端目录：`views`（BrowseHistory / MainWindow / MessageCenter / UploadManager / UserPage / Video）/ `components` / `api`（`Models.ts`、`index.ts`、`app.ts`）/ `router` / `styles` / `util`（`http` 封装）。
@@ -49,7 +50,7 @@ cd AniLink-Java
 mvn -q -DskipTests install                   # 首次或改过 AL-api / AL-common / AL-auth 后
 mvn -q -pl AL-web spring-boot:run            # 启动类 VideoWebApplication
 # 其它启动类：GatewayApplication / RemarkApplication / CommunicationApplication
-# 启动顺序（README）：AL-gateway → AL-communication → AL-remark → AL-web
+# 启动顺序（README）：AL-gateway → AL-communication → AL-remark → AL-web（新服务启用后见子项目 README 的完整顺序）
 mvn -q test
 
 # 前端

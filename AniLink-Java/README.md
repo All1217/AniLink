@@ -58,4 +58,28 @@ spring:
 
 - 选取一个文件目录，打开命令行界面，输入：`git clone -b main https://github.com/All1217/AniLink-Java.git`
 - 使用IDEA或其他方式打开
-- 按需启动模块，推荐全部启动，并且推荐的启动顺序：AL-gateway---->AL-communication---->AL-remark---->AL-web
+- 按需启动模块；当前可启动的仍是 `AL-gateway`、`AL-communication`、`AL-remark`、`AL-web`
+
+## 3 模块与端口
+
+Phase 0 已建立拆分后的模块骨架，新服务在 Phase 1–4 补启动类后启用：
+
+| 模块 | 端口 | 作用 | 当前状态 |
+| --- | --- | --- | --- |
+| AL-gateway | 8090 | 网关、鉴权、路由 | 可启动 |
+| AL-communication | 8023 / WS 8024 | 聊天与私信 WebSocket | 可启动 |
+| AL-remark | 8021 | 点赞 | 可启动 |
+| AL-web | 8022 | 迁移期兜底 | 可启动 |
+| AL-user | 8025 | 账号、资料、标签 | 骨架 |
+| AL-video | 8026 | 视频、投稿、转码、统计 | 骨架 |
+| AL-playback | 8027 | 历史与播放进度 | 骨架 |
+| AL-comment | 8028 | 评论 | 骨架 |
+| AL-danmaku | 8029 / WS 8030 | 弹幕与视频房间 WebSocket | 骨架 |
+| AL-social | 8031 | 关注、粉丝、收藏 | 骨架 |
+| AL-datacenter | 8032 | 统计、推荐、标签聚合 BFF | 骨架 |
+
+公共模块：`AL-common-core`、`AL-common-web`、`AL-common-mq`、`AL-common-redis`、`AL-common-mybatis`；契约模块：`AL-user-api`、`AL-video-api`、`AL-playback-api`、`AL-social-api`；架构规则：`AL-architecture-test`。
+
+Nacos 服务名：`userservice`、`videoservice`、`playbackservice`、`socialservice`、`commentservice`、`danmakuservice`、`datacenterservice`。
+
+新服务启用后的推荐启动顺序：`AL-gateway` → `AL-communication` → `AL-remark` → `AL-user` → `AL-video` → `AL-playback` → `AL-social` → `AL-comment` → `AL-danmaku` → `AL-datacenter` → `AL-web`（下线前）。
