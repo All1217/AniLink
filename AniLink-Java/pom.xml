@@ -10,6 +10,11 @@
     <packaging>pom</packaging>
     <modules>
         <module>AL-api</module>
+        <module>AL-common-core</module>
+        <module>AL-common-web</module>
+        <module>AL-common-mq</module>
+        <module>AL-common-redis</module>
+        <module>AL-common-mybatis</module>
         <module>AL-common</module>
         <module>AL-web</module>
         <module>AL-remark</module>
