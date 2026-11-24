@@ -1,0 +1,12 @@
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: remark-service
+          uri: lb://remarkservice
+          predicates:
+            - Path=/remark/**
+        - id: web-service
+          uri: lb://webservice
+          predicates:
+            - Path=/main/**

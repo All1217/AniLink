@@ -3,6 +3,8 @@ server:
   tomcat:
     uri-encoding: UTF-8   #服务编码
 spring:
+  config:
+    import: optional:classpath:routes.yml
   datasource:
     url: jdbc:mysql://localhost:3306/video?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=GMT%2b8
 
