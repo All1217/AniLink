@@ -5,12 +5,23 @@
 # @Project : algorithm-engine
 
 import time
+import threading
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from src.algorithm.interestTag import geneInterestTags
 from src.algorithm.behaviorTag import geneBehaviorTags
 from src.algorithm.qualityTag import geneQualityTags
-from src.util.database import mysql_cursor
+from src.util.database import mysql_cursor, mysql_conn
+
+
+# 同一 uid 的标签保存必须串行；用固定数量的条带锁，避免为每个 uid 建锁导致内存膨胀。
+_SAVE_LOCK_STRIPES = 64
+_save_locks = [threading.Lock() for _ in range(_SAVE_LOCK_STRIPES)]
+
+
+def _save_lock_for(uid):
+    """按 uid 选择条带锁；不同 uid 可能共享同一把锁，但同一 uid 一定互斥。"""
+    return _save_locks[hash(uid) % _SAVE_LOCK_STRIPES]
 
 
 class UserProfileBuilder:
@@ -103,14 +114,8 @@ class UserProfileBuilder:
         except Exception:
             print(f"❌ 用户 {uid} 数据预加载失败:")
             traceback.print_exc()
-            return {
-                'uid': uid,
-                'interest_tags': None,
-                'behavior_tags': None,
-                'quality_tags': None,
-                'success': False,
-                'execution_time': round(time.time() - start_time, 2)
-            }
+            # 预加载失败通常是数据库暂时不可用，向上抛出交给 MQ 有界重试
+            raise
 
         # 三个模块并发执行，传入预加载数据
         future_interest = self.executor.submit(
@@ -137,7 +142,13 @@ class UserProfileBuilder:
             results['behavior_tags'] = future_behavior.result(timeout=300)
             results['quality_tags'] = future_quality.result(timeout=300)
 
-            if any([results['interest_tags'], results['behavior_tags'], results['quality_tags']]):
+            module_outputs = [
+                results['interest_tags'],
+                results['behavior_tags'],
+                results['quality_tags'],
+            ]
+            # 任一模块返回了结果（包括空 dict）就视为一次有效构建；全为 None 代表构建失败，保留旧标签
+            if any(output is not None for output in module_outputs):
                 results['success'] = True
                 if save_to_db:
                     self.saveToDB(uid, results)
@@ -145,6 +156,8 @@ class UserProfileBuilder:
             print(f"❌ 用户 {uid} 画像构建失败:")
             traceback.print_exc()
             results['success'] = False
+            # 保存失败要让 MQ 消费者感知，才能走重试/死信；HTTP 调用方已有 try/except
+            raise
 
         results['execution_time'] = round(time.time() - start_time, 2)
         return results
@@ -153,17 +166,12 @@ class UserProfileBuilder:
 
     def saveToDB(self, uid, results):
         all_tags = {}
-        if results['interest_tags']:
-            all_tags.update(results['interest_tags'])
-        if results['behavior_tags']:
-            all_tags.update(results['behavior_tags'])
-        if results['quality_tags']:
-            all_tags.update(results['quality_tags'])
+        for key in ('interest_tags', 'behavior_tags', 'quality_tags'):
+            tags = results.get(key)
+            if tags:
+                all_tags.update(tags)
 
-        if not all_tags:
-            return
-
-        max_weight = max(all_tags.values())
+        max_weight = max(all_tags.values()) if all_tags else 0
         if max_weight > 0:
             normalized_tags = {
                 tag: round(weight / max_weight, 4)
@@ -172,15 +180,46 @@ class UserProfileBuilder:
         else:
             normalized_tags = all_tags
 
+        tag_count = len(normalized_tags)
         try:
-            with mysql_cursor() as cursor:
-                cursor.execute("DELETE FROM user_tag WHERE uid = %s", (uid,))
-                if normalized_tags:
-                    insert_sql = "INSERT INTO user_tag (uid, tag_name, weight) VALUES (%s, %s, %s)"
-                    values = [(uid, tag, weight) for tag, weight in normalized_tags.items()]
-                    cursor.executemany(insert_sql, values)
+            # 1.同一 uid 串行，避免两个构建的写入交错
+            with _save_lock_for(uid), mysql_conn() as conn:
+                cursor = conn.cursor()
+                try:
+                    # 2.显式事务：先 upsert 新标签，再删除不在新集合里的旧标签
+                    conn.begin()
+                    if normalized_tags:
+                        insert_sql = (
+                            "INSERT INTO user_tag (uid, tag_name, weight) VALUES (%s, %s, %s) "
+                            "ON DUPLICATE KEY UPDATE weight=VALUES(weight), "
+                            "updated_date=CURRENT_TIMESTAMP"
+                        )
+                        cursor.executemany(
+                            insert_sql,
+                            [(uid, tag, weight) for tag, weight in normalized_tags.items()]
+                        )
+                        placeholders = ", ".join(["%s"] * tag_count)
+                        cursor.execute(
+                            f"DELETE FROM user_tag WHERE uid = %s "
+                            f"AND tag_name NOT IN ({placeholders})",
+                            (uid, *normalized_tags.keys())
+                        )
+                    else:
+                        # 本次没有产出任何标签：清空该用户旧标签
+                        cursor.execute("DELETE FROM user_tag WHERE uid = %s", (uid,))
+                    conn.commit()
+                except Exception:
+                    conn.rollback()
+                    raise
+                finally:
+                    cursor.close()
+                    # 连接池会复用连接，恢复 autocommit，避免影响其他查询
+                    try:
+                        conn.autocommit(True)
+                    except Exception:
+                        pass
         except Exception:
-            print(f"❌ 用户 {uid} 标签保存失败:")
+            print(f"❌ 用户 {uid} 标签保存失败（本次标签数 {tag_count}）:")
             traceback.print_exc()
             raise
 

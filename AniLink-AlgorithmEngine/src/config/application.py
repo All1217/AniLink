@@ -62,6 +62,8 @@ RABBIT_USERNAME = 'admin'
 RABBIT_PASS = 'admin123'
 RABBIT_PREFETCH = 10
 RABBIT_MAX_WORKERS = 5
+PROFILE_MAX_RETRY = int(os.getenv("PROFILE_MAX_RETRY", "3"))
+BACKEND_GATEWAY_URL = os.getenv("BACKEND_GATEWAY_URL", "http://localhost:8090")
 """
     大模型配置
 """

@@ -10,6 +10,7 @@ from src.algorithm.recommender import getRecommendations
 from src.util.database import init_pools
 from src.util.profileBuilder import buildOne
 from src.util.rabbitmq import startRabbitmq, stopRabbitmq
+from src.server.health import register_health_route
 from src.algorithm.similarUser import startSimilar
 from src.util.scheduledJobs import scheduled_job, refreshBehaviorThreshold, refreshTagsVector, refreshQualityThreshold
 import threading
@@ -34,6 +35,9 @@ print("✅ 定时任务调度器已启动")
 
 # 初始化rabbitmq监听器
 rabbitmqListener = startRabbitmq()
+
+# 健康检查：/health 只读探活，不触发画像构建
+register_health_route(app, lambda: rabbitmqListener)
 
 
 @atexit.register
