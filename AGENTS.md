@@ -24,6 +24,7 @@ AniLink 是一个仿 B 站（bilibili）的视频社区全栈项目，原为三�
 | `AniLink-web/` | 新前端（Vite 6 + Vue 3.5 + SCSS，dev 5173），重写中，进度见 `docs/AniLink-web重构计划.md` |
 | `AniLink-admin/` | 独立管理端（Vite 6 + Vue 3.5 + Element Plus，dev 5174），入口 `/main/admin/**`，仅管理员可登录 |
 | `AniLink-AlgorithmEngine/` | 用户画像与推荐引擎（Flask），入口 `src/main.py` |
+| `db/` | 跨服务 MySQL 初始化 schema（`video` / `al_remark` / `al_communication`） |
 | `mcp-server-database/` | 本地/内网库元数据与 SQL MCP（Spring AI Streamable HTTP，`http://localhost:8102/mcp`）；**已 gitignore，不入库** |
 | `docs/` | 根级说明与操作日志（`operations-log.md`） |
 | `.dsh-bundles/mcp-database/` | DSH 的配置型插件，把上面的 MCP 接进 DeepSeek Harness |
@@ -142,6 +143,7 @@ cd mcp-server-database
 ## 参考文档
 
 - 各子项目 README 与部署前提：`AniLink-Java/README.md`、`AniLink-Vue3/README.md`、`AniLink-AlgorithmEngine/README.md`、`mcp-server-database/README.md`、`AniLink-web/README.md`、`AniLink-admin/README.md`
+- 数据库初始化：[db/README.md](db/README.md)、[db/schema.sql](db/schema.sql)
 - 前端重构方案与进度：`docs/AniLink-web重构计划.md`
 - 问题日志与备忘录：`AniLink-Java/docs/问题日志.md`、`AniLink-AlgorithmEngine/Assets/docs/问题日志.md`、`AniLink-AlgorithmEngine/Assets/docs/备忘录.md`
 - 架构与设计图（drawio/PNG）：`AniLink-Java/docs/Assets/AniLink-cloud/`（系统整体架构、模块拆分、E-R 图、标签体系、时序图等）

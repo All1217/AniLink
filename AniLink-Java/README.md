@@ -73,7 +73,7 @@ MySQL / Redis / RabbitMQ / MinIO / Nacos 由各服务共享
 
 ### 4.1 基础中间件
 
-- MySQL 8.x：建库 `video`、`al_remark`、`al_communication`
+- MySQL 8.x：执行 `../db/schema.sql` 初始化 `video`、`al_remark`、`al_communication`；或手动建库
 - Redis 6.x+：使用 5 号库
 - RabbitMQ：vhost `AniLink`
 - MinIO：桶 `avatar`、`video`、`video-cover`
