@@ -15,17 +15,6 @@
         <module>AL-common-mq</module>
         <module>AL-common-redis</module>
         <module>AL-common-mybatis</module>
-        <module>AL-user</module>
-        <module>AL-user-api</module>
-        <module>AL-video</module>
-        <module>AL-video-api</module>
-        <module>AL-playback</module>
-        <module>AL-playback-api</module>
-        <module>AL-social</module>
-        <module>AL-social-api</module>
-        <module>AL-comment</module>
-        <module>AL-danmaku</module>
-        <module>AL-datacenter</module>
         <module>AL-architecture-test</module>
         <module>AL-web</module>
         <module>AL-remark</module>

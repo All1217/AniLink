@@ -31,43 +31,7 @@
         </dependency>
         <dependency>
             <groupId>com.video</groupId>
-            <artifactId>AL-user</artifactId>
-            <version>1.0-SNAPSHOT</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.video</groupId>
-            <artifactId>AL-video</artifactId>
-            <version>1.0-SNAPSHOT</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.video</groupId>
-            <artifactId>AL-playback</artifactId>
-            <version>1.0-SNAPSHOT</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.video</groupId>
-            <artifactId>AL-social</artifactId>
-            <version>1.0-SNAPSHOT</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.video</groupId>
-            <artifactId>AL-comment</artifactId>
-            <version>1.0-SNAPSHOT</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.video</groupId>
-            <artifactId>AL-danmaku</artifactId>
-            <version>1.0-SNAPSHOT</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.video</groupId>
-            <artifactId>AL-datacenter</artifactId>
+            <artifactId>AL-common-core</artifactId>
             <version>1.0-SNAPSHOT</version>
             <scope>test</scope>
         </dependency>

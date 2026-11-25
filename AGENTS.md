@@ -20,7 +20,6 @@ AniLink 是一个仿 B 站（bilibili）的视频社区全栈项目，原为三�
 | 路径 | 作用 |
 | --- | --- |
 | `AniLink-Java/` | 后端微服务（Maven 多模块），`Spring Boot 3.0.5` + `Spring Cloud Alibaba`，包根 `com.video` |
-| `AniLink-Java/AL-user` 等 | 拆分后的服务骨架（Phase 0，尚未启用）：`AL-user`(8025)、`AL-video`(8026)、`AL-playback`(8027)、`AL-comment`(8028)、`AL-danmaku`(8029/WS 8030)、`AL-social`(8031)、`AL-datacenter`(8032)；公共模块 `AL-common-*`；契约模块 `AL-*-api` |
 | `AniLink-Vue3/` | 旧前端 SPA（Vue CLI 5 + Vue 3 + TS + Less，dev 8080），**只作对照，不再改动** |
 | `AniLink-web/` | 新前端（Vite 6 + Vue 3.5 + SCSS，dev 5173），重写中，进度见 `docs/AniLink-web重构计划.md` |
 | `AniLink-AlgorithmEngine/` | 用户画像与推荐引擎（Flask），入口 `src/main.py` |
@@ -29,7 +28,7 @@ AniLink 是一个仿 B 站（bilibili）的视频社区全栈项目，原为三�
 | `.dsh-bundles/mcp-database/` | DSH 的配置型插件，把上面的 MCP 接进 DeepSeek Harness |
 | `logs/` | 本地命令输出（gitignore），如 `git-bash-log.txt` |
 
-后端模块：`AL-gateway`（网关，reactive）、`AL-web`（视频/用户/评论/弹幕/粉丝/收藏/历史/数据中心，迁移期）、`AL-remark`（点赞）、`AL-communication`（WebSocket 聊天）、`AL-auth`（`AL-auth-resource-sdk`，鉴权 starter）、`AL-api`（共享 entity/dto）。`AL-common` 已拆为 `AL-common-core` / `AL-common-web` / `AL-common-mq` / `AL-common-redis` / `AL-common-mybatis`；新增 `AL-user` / `AL-video` / `AL-playback` / `AL-social` / `AL-comment` / `AL-danmaku` / `AL-datacenter` 与 `AL-*-api` 契约模块（Phase 0 骨架，Phase 1–4 启用）。
+后端模块：`AL-gateway`（网关，reactive）、`AL-web`（视频/用户/评论/弹幕/粉丝/收藏/历史/数据中心，迁移期）、`AL-remark`（点赞）、`AL-communication`（WebSocket 聊天）、`AL-auth`（`AL-auth-resource-sdk`，鉴权 starter）、`AL-api`（共享 entity/dto）。`AL-common` 已拆为 `AL-common-core` / `AL-common-web` / `AL-common-mq` / `AL-common-redis` / `AL-common-mybatis`；`AL-user` / `AL-video` / `AL-playback` / `AL-social` / `AL-comment` / `AL-danmaku` / `AL-datacenter` 与 `AL-<service>-api` 契约模块在 Phase 1–4 按需创建（Phase 0 只保留公共模块）。
 
 `AL-web` 内部分层：`controller` / `service` / `mapper` / `vo` / `mq` / `task` / `config`；实体与 DTO 在 `AL-api`。
 前端目录：`views`（BrowseHistory / MainWindow / MessageCenter / UploadManager / UserPage / Video）/ `components` / `api`（`Models.ts`、`index.ts`、`app.ts`）/ `router` / `styles` / `util`（`http` 封装）。
@@ -47,7 +46,7 @@ AniLink 是一个仿 B 站（bilibili）的视频社区全栈项目，原为三�
 ```powershell
 # 后端：仓库没有 mvnw（只有 pom.xml），用 IDEA 直接运行各模块启动类，或本机 mvn
 cd AniLink-Java
-mvn -q -DskipTests install                   # 首次或改过 AL-api / AL-common / AL-auth 后
+mvn -q -DskipTests install                   # 首次或改过 AL-api / AL-common-core / AL-auth 后
 mvn -q -pl AL-web spring-boot:run            # 启动类 VideoWebApplication
 # 其它启动类：GatewayApplication / RemarkApplication / CommunicationApplication
 # 启动顺序（README）：AL-gateway → AL-communication → AL-remark → AL-web（新服务启用后见子项目 README 的完整顺序）

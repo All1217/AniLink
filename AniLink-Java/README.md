@@ -62,7 +62,7 @@ spring:
 
 ## 3 模块与端口
 
-Phase 0 已建立拆分后的模块骨架，新服务在 Phase 1–4 补启动类后启用：
+Phase 0 只建立公共模块；7 个服务模块与对应契约模块在各自 Phase 创建。下表是规划中的服务与端口：
 
 | 模块 | 端口 | 作用 | 当前状态 |
 | --- | --- | --- | --- |
@@ -70,15 +70,15 @@ Phase 0 已建立拆分后的模块骨架，新服务在 Phase 1–4 补启动�
 | AL-communication | 8023 / WS 8024 | 聊天与私信 WebSocket | 可启动 |
 | AL-remark | 8021 | 点赞 | 可启动 |
 | AL-web | 8022 | 迁移期兜底 | 可启动 |
-| AL-user | 8025 | 账号、资料、标签 | 骨架 |
-| AL-video | 8026 | 视频、投稿、转码、统计 | 骨架 |
-| AL-playback | 8027 | 历史与播放进度 | 骨架 |
-| AL-comment | 8028 | 评论 | 骨架 |
-| AL-danmaku | 8029 / WS 8030 | 弹幕与视频房间 WebSocket | 骨架 |
-| AL-social | 8031 | 关注、粉丝、收藏 | 骨架 |
-| AL-datacenter | 8032 | 统计、推荐、标签聚合 BFF | 骨架 |
+| AL-user | 8025 | 账号、资料、标签 | Phase 1 创建 |
+| AL-video | 8026 | 视频、投稿、转码、统计 | Phase 2 创建 |
+| AL-playback | 8027 | 历史与播放进度 | Phase 2 创建 |
+| AL-comment | 8028 | 评论 | Phase 3 创建 |
+| AL-danmaku | 8029 / WS 8030 | 弹幕与视频房间 WebSocket | Phase 3 创建 |
+| AL-social | 8031 | 关注、粉丝、收藏 | Phase 3 创建 |
+| AL-datacenter | 8032 | 统计、推荐、标签聚合 BFF | Phase 4 创建 |
 
-公共模块：`AL-common-core`、`AL-common-web`、`AL-common-mq`、`AL-common-redis`、`AL-common-mybatis`；契约模块：`AL-user-api`、`AL-video-api`、`AL-playback-api`、`AL-social-api`；架构规则：`AL-architecture-test`。
+公共模块：`AL-common-core`、`AL-common-web`、`AL-common-mq`、`AL-common-redis`、`AL-common-mybatis`；契约模块随对应服务创建（`AL-<service>-api`）；架构规则：`AL-architecture-test`。
 
 Nacos 服务名：`userservice`、`videoservice`、`playbackservice`、`socialservice`、`commentservice`、`danmakuservice`、`datacenterservice`。
 
