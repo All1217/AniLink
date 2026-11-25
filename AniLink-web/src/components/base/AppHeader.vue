@@ -97,7 +97,12 @@ function goUpload() {
 
 async function onCommand(command: string) {
   if (command === 'logout') {
-    await ElMessageBox.confirm('确定退出登录吗？', '提示', { type: 'warning' }).catch(() => 'cancel')
+    try {
+      await ElMessageBox.confirm('确定退出登录吗？', '提示', { type: 'warning' })
+    } catch {
+      // 点击取消或右上角关闭只关闭弹窗，不执行退出
+      return
+    }
     if (userStore.isLogin) await userStore.signOut()
     router.push('/home')
     return
