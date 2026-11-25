@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-11-24-backend-service-split-design.md`（配合 `openspec/changes/refactor-backend-service-split/` 的 proposal/specs/design/tasks 一起阅读）
 
+> **2026-11-25 调整**：按 review 结论删除未使用的 7 个服务与 4 个契约空模块；服务模块在各自 Phase 创建，Task 1.1/1.5 的模块清单以本注记为准。
+
 ## Global Constraints
 
 - JDK 17；Spring Boot 3.0.5；Spring Cloud 2022.0.4；不升级任何既有依赖版本。

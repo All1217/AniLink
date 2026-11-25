@@ -104,7 +104,7 @@
 
 - `AL-common` 拆为 `AL-common-core`（Result、错误码、常量、登录用户上下文、JWT/Json 工具）、`AL-common-web`（全局异常、Web/Cookie 工具、Knife4j 配置）、`AL-common-mq`（RabbitMQ 配置与 Helper）、`AL-common-redis`（Redis 配置）、`AL-common-mybatis`（MyBatis-Plus 配置）。各服务按需引入，不再被 MinIO/Netty/WebSocket 等重依赖污染。
 - `AL-auth-resource-sdk` 只依赖 core/web，保持自动配置不变。
-- 每个需要被调用的服务提供 `-api` 契约模块：`AL-user-api`、`AL-video-api`、`AL-playback-api`、`AL-social-api`，内含 Feign 客户端与 DTO；实体下沉到属主服务的 `model` 包。
+- 每个需要被调用的服务提供 `-api` 契约模块：`AL-user-api`、`AL-video-api`、`AL-playback-api`、`AL-social-api`，内含 Feign 客户端与 DTO；实体下沉到属主服务的 `model` 包。契约模块随对应服务在 Phase 1–4 创建，Phase 0 只建公共模块，避免空脚手架。
 - `AL-api` 最终只保留跨服务共享的少量 DTO（如 `LikedTimesDTO`），迁移完成后删除；`AL-remark`/`AL-communication` 同步改用新契约。
 - 备选：保留单一 `AL-common`，只按包拆分。改动小，但依赖仍然全量传递，无法体现“复用性与扩展性”，否决。
 

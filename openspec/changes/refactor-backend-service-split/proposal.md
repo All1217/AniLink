@@ -42,7 +42,7 @@
 
 ## Impact
 
-- 代码：`AniLink-Java` 全部 7 个模块；新增 7 个服务模块、4 个契约模块、5 个公共子模块；`AL-web` 迁移完成后删除。
+- 代码：`AniLink-Java` 全部 7 个模块；新增 5 个公共子模块，7 个服务模块与对应契约模块随 Phase 创建；`AL-web` 迁移完成后删除。
 - 配置：`AL-gateway` 路由表与鉴权白名单；各服务 `bootstrap.yml`/`application.yml`、Nacos 服务名与共享配置引用；新增端口 8025–8032。
 - 数据：一阶段仍用 `video` 库，仅调整归属与访问方式，不做表结构变更；二阶段再按服务拆 schema。
 - 消息：保留 `like.record.topic` 契约；新增 `favorite.changed` 事件（收藏状态变化 → `al-video` 单写计数器）。

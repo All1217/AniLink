@@ -28,6 +28,7 @@
 
 - 服务实现包：`com.video.<service>`（如 `com.video.user`、`com.video.video`）；实体、Mapper、Service 都在本服务内。
 - 契约模块包：`com.video.api.<service>`（如 `com.video.api.user`），只放 Feign 客户端与跨服务 DTO，不放实体。
+- Phase 0 只保留 5 个公共模块；服务模块与契约模块随各自 Phase 创建，避免空脚手架被误读为已存在服务。
 - 公共包保持 `com.video.common.*`，按模块拆分后包名不变，避免全仓 import 改写。
 - 服务启动类使用 `@SpringBootApplication(scanBasePackages = "com.video")`；Mapper 扫描由各服务自己的 `@MapperScan("com.video.<service>.mapper")` 声明，共享的 MyBatis 配置不再写死 `com.video.web.*.mapper`。
 - 服务之间只依赖对方的 `-api` 契约模块，不依赖实现模块。ArchUnit 规则据此检查。

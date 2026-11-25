@@ -2,11 +2,11 @@
 
 ## 1. Phase 0：工程基座与边界护栏
 
-- [ ] 1.1 在 `AniLink-Java/pom.xml` 注册 7 个服务模块、4 个契约模块与 5 个公共子模块的空骨架，补齐各自 `pom.xml`；验证：`mvn -q -DskipTests install` 通过
+- [ ] 1.1 在 `AniLink-Java/pom.xml` 注册 5 个公共子模块（`AL-common-core/web/mq/redis/mybatis`）与 `AL-architecture-test`；7 个服务模块与契约模块随各自 Phase 创建；验证：`mvn -q -DskipTests install` 通过
 - [ ] 1.2 新建 `AL-common-core`，迁入 `Result`、`ResultCodeEnum`、`VideoException`、常量、`LoginUser`/`LoginUserHolder`、`JwtUtil`、`JsonUtils` 等无框架重依赖的类；验证：`mvn -q -DskipTests install` 通过，AL-web 启动类能加载
 - [ ] 1.3 新建 `AL-common-web`、`AL-common-mq`、`AL-common-redis`、`AL-common-mybatis`，把 MinIO、Netty、WebSocket 等重依赖移出公共层；验证：`mvn dependency:tree` 中每个业务服务只出现其实际使用的公共模块
 - [ ] 1.4 调整 `AL-auth-resource-sdk` 只依赖 `AL-common-core` 与 `AL-common-web`，保持三个拦截器行为不变；验证：`mvn -q -pl AL-auth/AL-auth-resource-sdk test` 通过
-- [ ] 1.5 建立 `AL-user-api`、`AL-video-api`、`AL-playback-api`、`AL-social-api`，加入 OpenFeign 依赖与客户端骨架；验证：`mvn -q -DskipTests install` 通过且依赖关系无环
+- [ ] 1.5 约定契约模块命名 `com.video.api.<service>`；Phase 0 不创建空契约模块，Phase 1 随 `AL-user` 创建 `AL-user-api`；验证：命名约定写入 `design.md`，Phase 1 首个契约模块可编译
 - [ ] 1.6 把网关路由从 `bootstrap.yml` 外置为独立路由配置，保留 `/main/**` → webservice、`/remark/**` → remarkservice；验证：启动网关后两条路径均能转发到原有服务
 - [ ] 1.7 修复 `AccountAuthFilter` 丢弃 `exchange.mutate().build()` 结果的问题，并用重建后的 exchange 继续链路；验证：新增 `AccountAuthFilterTest`，断言带 token 的请求到达下游时携带 `user-id` 与 `X-Real-IP`
 - [ ] 1.8 把网关与 SDK 共用的免登录路径模式集中到 `AL-common-core` 常量并让两处引用；验证：单元测试覆盖 `/main/login/**`、`/main/user/register`、`/main/public/refresh`、`/**/public/**` 的匹配结果
