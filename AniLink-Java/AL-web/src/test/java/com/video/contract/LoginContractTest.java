@@ -5,6 +5,7 @@ import com.video.common.exception.VideoException;
 import com.video.common.result.ResultCodeEnum;
 import com.video.web.main.controller.login.LoginController;
 import com.video.web.main.service.LoginService;
+import com.video.web.main.service.UserInfoService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -30,6 +31,9 @@ class LoginContractTest {
 
     @MockBean
     private LoginService loginService;
+
+    @MockBean
+    private UserInfoService userInfoService;
 
     @MockBean
     private StringRedisTemplate redisTemplate;

@@ -12,7 +12,7 @@ class MapperScanConfigTest {
     void mapperScanIsDeclaredOnWebConfig() {
         MapperScan scan = MapperScanConfig.class.getAnnotation(MapperScan.class);
         assertNotNull(scan);
-        assertArrayEquals(new String[]{"com.video.web.main.mapper"}, scan.value());
+        assertArrayEquals(new String[]{"com.video.web.main.mapper", "com.video.web.admin.mapper"}, scan.value());
     }
 
     @Test

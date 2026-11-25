@@ -5,6 +5,6 @@ import org.springframework.context.annotation.Configuration;
 
 /** AL-web 的 Mapper 扫描；放在独立配置类，避免 Web 切片测试加载 Mapper。 */
 @Configuration
-@MapperScan("com.video.web.main.mapper")
+@MapperScan({"com.video.web.main.mapper", "com.video.web.admin.mapper"})
 public class MapperScanConfig {
 }

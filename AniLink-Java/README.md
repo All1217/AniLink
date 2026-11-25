@@ -187,6 +187,10 @@ mvn -q -pl AL-web spring-boot:run
 
 ### 5.3 前端联调
 
+用户端：`AniLink-web`（5173）通过 `/api` 代理到网关 8090。
+
+管理端：`AniLink-admin`（5174）同样通过 `/api` 代理到 8090，入口 `/main/admin/**`；管理员账号 `user.role` 必须为 1 或 2。当前 admin 是 `AL-web` 内的 `com.video.web.admin` 模块，不单独启动服务。
+
 - 新前端 `AniLink-web`：`pnpm dev`（5173），`/api` 由 Vite 代理到网关 8090。
 - 旧前端 `AniLink-Vue3`：`npm run serve`（8080），只作对照。
 - 直连网关时请求路径是 `/main/**` 或 `/remark/**`，不要带前端的 `/api` 前缀。
@@ -219,6 +223,9 @@ mvn -q -pl AL-web spring-boot:run
 `AL-remark` 提供 `/remark/like`（点赞/取消）与 `/remark/get/like`（点赞状态）。
 
 ## 7. 鉴权
+
+- 网关只认 access token 并注入 `user-id`；`/main/admin/**` 由 `AdminAuthInterceptor` 再查一次 `user.role`，普通用户返回 309。
+- 管理端角色调整只允许 role=2，且不能修改自己。
 
 - **access-token**：请求头 `access-token`，默认 30 分钟；网关校验签名、过期与 `typ=access`，通过后向下游注入 `user-id`。
 - **refresh-token**：HttpOnly Cookie `refresh-token`，默认 7 天；只能用于 `/main/public/refresh`，按 jti 轮换（5 秒宽限，重用即吊销全端）。
@@ -262,6 +269,7 @@ mvn test
 ## 11. 当前迁移状态与注意事项
 
 - Phase 0 已完成：`AL-common` 拆分为 5 个模块、网关身份透传修复、免登录路径集中、路由外置、契约测试基座、ArchUnit 规则。
+- 管理端已加入 `AL-web` 的 `com.video.web.admin` 包（`/main/admin/**`），暂不独立成服务；等 `al-user`/`al-video` 落地后再抽成 `AL-admin` BFF。
 - **服务拆分尚未开始**：`/main/**` 仍全部由 `AL-web` 处理；规划中的 7 个服务模块在 Phase 1–4 创建。
 - `AL-web` 监听 `0.0.0.0:8022`，仅供本机/内网开发；对外只暴露网关 8090，避免绕过鉴权直连 8022。
 - 不要手工修改 `video.transcode_status`；不要让多个实例同时跑 `AL-web` 的转码队列（当前是进程内单实例模型）。
@@ -285,4 +293,5 @@ mvn test
 - 微服务拆分设计：[../docs/superpowers/specs/2026-11-24-backend-service-split-design.md](../docs/superpowers/specs/2026-11-24-backend-service-split-design.md)
 - 拆分变更与任务：[../openspec/changes/refactor-backend-service-split/](../openspec/changes/refactor-backend-service-split/)
 - 新前端：[../AniLink-web/README.md](../AniLink-web/README.md)
+- 管理端：[../AniLink-admin/README.md](../AniLink-admin/README.md)
 - 仓库总说明：[../AGENTS.md](../AGENTS.md)

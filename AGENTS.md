@@ -22,13 +22,14 @@ AniLink 是一个仿 B 站（bilibili）的视频社区全栈项目，原为三�
 | `AniLink-Java/` | 后端微服务（Maven 多模块），`Spring Boot 3.0.5` + `Spring Cloud Alibaba`，包根 `com.video` |
 | `AniLink-Vue3/` | 旧前端 SPA（Vue CLI 5 + Vue 3 + TS + Less，dev 8080），**只作对照，不再改动** |
 | `AniLink-web/` | 新前端（Vite 6 + Vue 3.5 + SCSS，dev 5173），重写中，进度见 `docs/AniLink-web重构计划.md` |
+| `AniLink-admin/` | 独立管理端（Vite 6 + Vue 3.5 + Element Plus，dev 5174），入口 `/main/admin/**`，仅管理员可登录 |
 | `AniLink-AlgorithmEngine/` | 用户画像与推荐引擎（Flask），入口 `src/main.py` |
 | `mcp-server-database/` | 本地/内网库元数据与 SQL MCP（Spring AI Streamable HTTP，`http://localhost:8102/mcp`）；**已 gitignore，不入库** |
 | `docs/` | 根级说明与操作日志（`operations-log.md`） |
 | `.dsh-bundles/mcp-database/` | DSH 的配置型插件，把上面的 MCP 接进 DeepSeek Harness |
 | `logs/` | 本地命令输出（gitignore），如 `git-bash-log.txt` |
 
-后端模块：`AL-gateway`（网关，reactive）、`AL-web`（视频/用户/评论/弹幕/粉丝/收藏/历史/数据中心，迁移期）、`AL-remark`（点赞）、`AL-communication`（WebSocket 聊天）、`AL-auth`（`AL-auth-resource-sdk`，鉴权 starter）、`AL-api`（共享 entity/dto）。`AL-common` 已拆为 `AL-common-core` / `AL-common-web` / `AL-common-mq` / `AL-common-redis` / `AL-common-mybatis`；`AL-user` / `AL-video` / `AL-playback` / `AL-social` / `AL-comment` / `AL-danmaku` / `AL-datacenter` 与 `AL-<service>-api` 契约模块在 Phase 1–4 按需创建（Phase 0 只保留公共模块）。
+后端模块：`AL-gateway`（网关，reactive）、`AL-web`（视频/用户/评论/弹幕/粉丝/收藏/历史/数据中心 + 管理端 `com.video.web.admin`，迁移期）、`AL-remark`（点赞）、`AL-communication`（WebSocket 聊天）、`AL-auth`（`AL-auth-resource-sdk`，鉴权 starter）、`AL-api`（共享 entity/dto）。`AL-common` 已拆为 `AL-common-core` / `AL-common-web` / `AL-common-mq` / `AL-common-redis` / `AL-common-mybatis`；`AL-user` / `AL-video` / `AL-playback` / `AL-social` / `AL-comment` / `AL-danmaku` / `AL-datacenter` 与 `AL-<service>-api` 契约模块在 Phase 1–4 按需创建（Phase 0 只保留公共模块）。
 
 `AL-web` 内部分层：`controller` / `service` / `mapper` / `vo` / `mq` / `task` / `config`；实体与 DTO 在 `AL-api`。
 前端目录：`views`（BrowseHistory / MainWindow / MessageCenter / UploadManager / UserPage / Video）/ `components` / `api`（`Models.ts`、`index.ts`、`app.ts`）/ `router` / `styles` / `util`（`http` 封装）。
@@ -62,6 +63,12 @@ cd AniLink-web
 pnpm install
 pnpm dev             # dev 5173，/api 反代到网关 8090
 pnpm build           # typecheck + 生产构建
+
+# 管理端
+cd AniLink-admin
+npm install
+npm run dev          # dev 5174，/api 反代到网关 8090
+npm run build
 
 # 画像引擎（虚拟环境可复用已有 .venv 或 anaconda 环境）
 cd AniLink-AlgorithmEngine
@@ -134,7 +141,7 @@ cd mcp-server-database
 
 ## 参考文档
 
-- 各子项目 README 与部署前提：`AniLink-Java/README.md`、`AniLink-Vue3/README.md`、`AniLink-AlgorithmEngine/README.md`、`mcp-server-database/README.md`、`AniLink-web/README.md`
+- 各子项目 README 与部署前提：`AniLink-Java/README.md`、`AniLink-Vue3/README.md`、`AniLink-AlgorithmEngine/README.md`、`mcp-server-database/README.md`、`AniLink-web/README.md`、`AniLink-admin/README.md`
 - 前端重构方案与进度：`docs/AniLink-web重构计划.md`
 - 问题日志与备忘录：`AniLink-Java/docs/问题日志.md`、`AniLink-AlgorithmEngine/Assets/docs/问题日志.md`、`AniLink-AlgorithmEngine/Assets/docs/备忘录.md`
 - 架构与设计图（drawio/PNG）：`AniLink-Java/docs/Assets/AniLink-cloud/`（系统整体架构、模块拆分、E-R 图、标签体系、时序图等）
