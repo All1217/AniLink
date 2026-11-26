@@ -63,3 +63,11 @@ export interface AdminRef {
   name: string
   field: string
 }
+
+export interface AdminCleanupResult {
+  scanned: number
+  deleted: number
+  skipped: number
+  failed: number
+  failedKeys: string[]
+}

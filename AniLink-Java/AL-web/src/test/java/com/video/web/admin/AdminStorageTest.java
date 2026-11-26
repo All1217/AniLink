@@ -4,6 +4,9 @@ import com.video.common.exception.VideoException;
 import com.video.common.properties.MinIOProperties;
 import com.video.web.admin.mapper.AdminStorageRefMapper;
 import com.video.web.admin.service.impl.AdminStorageServiceImpl;
+import com.video.web.admin.vo.AdminCleanupResultVo;
+import com.video.web.admin.vo.AdminObjectPageVo;
+import com.video.web.admin.vo.AdminObjectVo;
 import com.video.web.admin.vo.AdminRefVo;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,9 +22,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -114,6 +119,38 @@ class AdminStorageTest {
                 () -> service.delete("video-cover", "cover.jpg", 9L));
 
         assertEquals(500, error.getCode());
+    }
+
+    @Test
+    void cleanupDeletesOnlyUnreferencedObjects() throws Exception {
+        AdminObjectVo used = object("used.mp4");
+        AdminObjectVo orphan = object("orphan.mp4");
+        AdminObjectPageVo page = new AdminObjectPageVo();
+        page.setItems(List.of(used, orphan));
+        page.setHasMore(false);
+
+        AdminStorageServiceImpl spyService = spy(service);
+        doReturn(page).when(spyService).listObjects("video", "", null, 200);
+        when(refMapper.findVideoRefs(anyString())).thenAnswer(invocation -> {
+            String url = invocation.getArgument(0);
+            return url.endsWith("/used.mp4") ? List.of(ref("video", 1L, "video_url")) : List.of();
+        });
+        when(refMapper.findUserRefs(anyString())).thenReturn(List.of());
+
+        AdminCleanupResultVo result = spyService.cleanup("video", "", 9L);
+
+        assertEquals(2, result.getScanned());
+        assertEquals(1, result.getDeleted());
+        assertEquals(1, result.getSkipped());
+        assertEquals(0, result.getFailed());
+        verify(minioClient).removeObject(any());
+    }
+
+    private AdminObjectVo object(String key) {
+        AdminObjectVo vo = new AdminObjectVo();
+        vo.setBucket("video");
+        vo.setKey(key);
+        return vo;
     }
 
     private AdminRefVo ref(String type, Long id, String field) {

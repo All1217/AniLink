@@ -3,12 +3,14 @@ package com.video.web.admin.controller;
 import com.video.common.login.LoginUserHolder;
 import com.video.common.result.Result;
 import com.video.web.admin.service.AdminStorageService;
+import com.video.web.admin.vo.AdminCleanupResultVo;
 import com.video.web.admin.vo.AdminObjectPageVo;
 import com.video.web.admin.vo.AdminRefVo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -58,6 +60,13 @@ public class AdminStorageController {
             return result;
         }
         return Result.ok();
+    }
+
+    @Operation(summary = "一键清除当前桶/前缀下无引用对象")
+    @PostMapping("/cleanup")
+    public Result<AdminCleanupResultVo> cleanup(@RequestParam String bucket,
+                                                @RequestParam(required = false) String prefix) {
+        return Result.ok(adminStorageService.cleanup(bucket, prefix, operatorUid()));
     }
 
     private Long operatorUid() {

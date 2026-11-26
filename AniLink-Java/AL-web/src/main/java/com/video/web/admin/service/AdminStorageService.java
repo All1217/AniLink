@@ -1,5 +1,6 @@
 package com.video.web.admin.service;
 
+import com.video.web.admin.vo.AdminCleanupResultVo;
 import com.video.web.admin.vo.AdminObjectPageVo;
 import com.video.web.admin.vo.AdminRefVo;
 
@@ -15,4 +16,7 @@ public interface AdminStorageService {
 
     /** 返回非空引用列表表示未删除；返回空列表表示删除成功。 */
     List<AdminRefVo> delete(String bucket, String key, Long operatorUid);
+
+    /** 扫描当前桶/前缀下全部对象，删除无业务引用的对象。 */
+    AdminCleanupResultVo cleanup(String bucket, String prefix, Long operatorUid);
 }

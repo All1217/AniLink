@@ -6,6 +6,7 @@ import com.video.common.properties.MinIOProperties;
 import com.video.common.result.ResultCodeEnum;
 import com.video.web.admin.mapper.AdminStorageRefMapper;
 import com.video.web.admin.service.AdminStorageService;
+import com.video.web.admin.vo.AdminCleanupResultVo;
 import com.video.web.admin.vo.AdminObjectPageVo;
 import com.video.web.admin.vo.AdminObjectVo;
 import com.video.web.admin.vo.AdminRefVo;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +38,7 @@ public class AdminStorageServiceImpl implements AdminStorageService {
             MinioConstant.VIDEO_BUCKET,
             MinioConstant.VIDEO_COVER_BUCKET
     );
+    private static final int CLEANUP_PAGE_SIZE = 200;
 
     private final MinioClient minioClient;
     private final MinIOProperties minIOProperties;
@@ -133,8 +136,54 @@ public class AdminStorageServiceImpl implements AdminStorageService {
         return List.of();
     }
 
+    @Override
+    public AdminCleanupResultVo cleanup(String bucket, String prefix, Long operatorUid) {
+        validateBucket(bucket);
+        String normalizedPrefix = prefix == null ? "" : prefix;
+        AdminCleanupResultVo result = new AdminCleanupResultVo();
+        Map<Long, AdminRefVo> hlsCache = new HashMap<>();
+        String cursor = null;
+        while (true) {
+            AdminObjectPageVo page = listObjects(bucket, normalizedPrefix, cursor, CLEANUP_PAGE_SIZE);
+            if (page.getItems().isEmpty()) {
+                break;
+            }
+            for (AdminObjectVo object : page.getItems()) {
+                result.setScanned(result.getScanned() + 1);
+                List<AdminRefVo> refs = findReferences(bucket, object.getKey(), hlsCache);
+                if (!refs.isEmpty()) {
+                    result.setSkipped(result.getSkipped() + 1);
+                    continue;
+                }
+                try {
+                    minioClient.removeObject(RemoveObjectArgs.builder()
+                            .bucket(bucket).object(object.getKey()).build());
+                    result.setDeleted(result.getDeleted() + 1);
+                } catch (Exception e) {
+                    result.setFailed(result.getFailed() + 1);
+                    result.getFailedKeys().add(object.getKey());
+                    log.warn("清理 MinIO 对象失败：bucket={}, key={}", bucket, object.getKey(), e);
+                }
+            }
+            if (!page.isHasMore() || page.getNextCursor() == null) {
+                break;
+            }
+            cursor = page.getNextCursor();
+        }
+        log.info("admin action operator={} action=storage.cleanup bucket={} prefix={} "
+                        + "scanned={} deleted={} skipped={} failed={}",
+                operatorUid, bucket, normalizedPrefix, result.getScanned(),
+                result.getDeleted(), result.getSkipped(), result.getFailed());
+        return result;
+    }
+
     /** 汇总视频/用户/HLS 目录引用，按 type:id:field 去重。 */
     private List<AdminRefVo> findReferences(String bucket, String key) {
+        return findReferences(bucket, key, new HashMap<>());
+    }
+
+    /** 清理时复用 HLS vid 缓存，避免同一目录下每个分片都查一次稿件。 */
+    private List<AdminRefVo> findReferences(String bucket, String key, Map<Long, AdminRefVo> hlsCache) {
         String endpoint = minIOProperties.getEndpoint();
         if (endpoint == null || endpoint.isBlank()) {
             throw new VideoException(ResultCodeEnum.APP_SERVER_ERROR.getCode(), "MinIO 地址未配置");
@@ -150,7 +199,14 @@ public class AdminStorageServiceImpl implements AdminStorageService {
         if (MinioConstant.VIDEO_BUCKET.equals(bucket) && key.startsWith(MinioConstant.HLS_PREFIX)) {
             String[] parts = key.split("/");
             if (parts.length > 1 && parts[1].matches("\\d+")) {
-                AdminRefVo ref = refMapper.findHlsRef(Long.valueOf(parts[1]));
+                Long vid = Long.valueOf(parts[1]);
+                AdminRefVo ref;
+                if (hlsCache.containsKey(vid)) {
+                    ref = hlsCache.get(vid);
+                } else {
+                    ref = refMapper.findHlsRef(vid);
+                    hlsCache.put(vid, ref);
+                }
                 if (ref != null) {
                     refs.putIfAbsent(refKey(ref), ref);
                 }

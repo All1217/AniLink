@@ -1,5 +1,6 @@
 import http from './client'
 import type {
+  AdminCleanupResult,
   AdminMe,
   AdminObjectPage,
   AdminRef,
@@ -43,5 +44,9 @@ export const adminApi = {
   deleteObject: (bucket: string, key: string) =>
     http
       .delete<Result<AdminRef[] | null>>('/main/admin/storage/objects', { params: { bucket, key } })
+      .then((res) => res.data),
+  cleanup: (bucket: string, prefix?: string) =>
+    http
+      .post<Result<AdminCleanupResult>>('/main/admin/storage/cleanup', null, { params: { bucket, prefix } })
       .then((res) => res.data),
 }

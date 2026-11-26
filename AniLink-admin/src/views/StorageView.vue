@@ -7,15 +7,25 @@
 
     <div class="table-card">
       <div class="toolbar">
-        <el-select v-model="bucket" style="width: 160px" @change="reload">
+        <el-select v-model="bucket" :disabled="busy" style="width: 160px" @change="reload">
           <el-option v-for="item in buckets" :key="item" :label="item" :value="item" />
         </el-select>
-        <el-input v-model="prefix" placeholder="前缀，如 hls/" clearable style="width: 240px" @keyup.enter="reload" />
-        <el-button type="primary" @click="reload">加载</el-button>
-        <el-button :disabled="!hasMore" @click="loadMore">加载更多</el-button>
+        <el-input
+          v-model="prefix"
+          :disabled="busy"
+          placeholder="前缀，如 hls/"
+          clearable
+          style="width: 240px"
+          @keyup.enter="reload"
+        />
+        <el-button type="primary" :disabled="busy" @click="reload">加载</el-button>
+        <el-button :disabled="!hasMore || busy" @click="loadMore">加载更多</el-button>
+        <el-button type="danger" plain :loading="cleaning" :disabled="busy" @click="cleanup">
+          一键清除冗余存储
+        </el-button>
       </div>
 
-      <el-table v-loading="loading" :data="objects" border>
+      <el-table v-loading="busy" element-loading-text="正在处理，请稍候..." :data="objects" border>
         <el-table-column prop="key" label="对象 Key" min-width="360" show-overflow-tooltip />
         <el-table-column label="大小" width="120">
           <template #default="{ row }">{{ formatSize(row.size) }}</template>
@@ -23,18 +33,18 @@
         <el-table-column prop="lastModified" label="更新时间" width="170" />
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="preview(row)">预览</el-button>
-            <el-button link type="danger" @click="remove(row)">删除</el-button>
+            <el-button link type="primary" :disabled="busy" @click="preview(row)">预览</el-button>
+            <el-button link type="danger" :disabled="busy" @click="remove(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
-      <p v-if="!loading && objects.length === 0" class="muted">该前缀下没有对象</p>
+      <p v-if="!busy && objects.length === 0" class="muted">该前缀下没有对象</p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { adminApi } from '@/api/admin'
 import type { AdminObject, AdminRef } from '@/api/types'
@@ -46,6 +56,8 @@ const objects = ref<AdminObject[]>([])
 const nextCursor = ref<string | null>(null)
 const hasMore = ref(false)
 const loading = ref(false)
+const cleaning = ref(false)
+const busy = computed(() => loading.value || cleaning.value)
 
 async function loadBuckets() {
   const result = await adminApi.buckets()
@@ -82,16 +94,19 @@ async function load(reset: boolean) {
 }
 
 function reload() {
+  if (cleaning.value) return
   nextCursor.value = null
   hasMore.value = true
   load(true)
 }
 
 function loadMore() {
+  if (cleaning.value) return
   load(false)
 }
 
 async function preview(row: AdminObject) {
+  if (busy.value) return
   const result = await adminApi.presign(row.bucket, row.key)
   if (result.code !== 200 || !result.data) {
     ElMessage.error(result.message || '生成预览地址失败')
@@ -101,6 +116,7 @@ async function preview(row: AdminObject) {
 }
 
 async function remove(row: AdminObject) {
+  if (busy.value) return
   try {
     await ElMessageBox.confirm(
       `确定删除对象「${row.key}」吗？此操作不可恢复。`,
@@ -123,6 +139,47 @@ async function remove(row: AdminObject) {
   }
   ElMessage.success('已删除')
   reload()
+}
+
+async function cleanup() {
+  if (busy.value) return
+  const scope = prefix.value.trim() ? `前缀「${prefix.value.trim()}」` : '整个桶'
+  try {
+    await ElMessageBox.confirm(
+      `将扫描 ${bucket.value} 桶${scope} 下的全部对象，删除没有任何业务引用的对象；` +
+        '被引用的对象会自动跳过。删除不可恢复，是否继续？',
+      '一键清除冗余存储',
+      { type: 'warning', confirmButtonText: '开始清理', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+
+  cleaning.value = true
+  try {
+    const result = await adminApi.cleanup(bucket.value, prefix.value.trim() || undefined)
+    if (result.code !== 200 || !result.data) {
+      ElMessage.error(result.message || '清理失败')
+      return
+    }
+    const { scanned, deleted, skipped, failed, failedKeys } = result.data
+    const summary =
+      `扫描 ${scanned} 个，删除 ${deleted} 个，跳过 ${skipped} 个被引用对象` +
+      (failed > 0 ? `，失败 ${failed} 个` : '')
+    if (failed > 0) {
+      ElMessage.warning(summary)
+    } else {
+      ElMessage.success(summary)
+    }
+    if (failedKeys && failedKeys.length > 0) {
+      await ElMessageBox.alert(failedKeys.join('\n'), '部分对象删除失败', { type: 'warning' })
+    }
+    await load(true)
+  } catch {
+    ElMessage.error('清理失败')
+  } finally {
+    cleaning.value = false
+  }
 }
 
 function refText(refs: AdminRef[]) {
