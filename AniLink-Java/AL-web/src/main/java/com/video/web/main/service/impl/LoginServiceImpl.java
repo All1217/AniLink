@@ -259,6 +259,12 @@ public class LoginServiceImpl implements LoginService {
         writeRefreshCookie("");
     }
 
+    @Override
+    public void revokeAllSessions(Long uid) {
+        revokeAll(uid);
+        log.info("用户 {} 的 refresh 会话已全部吊销", uid);
+    }
+
     /** 会话序号：ZSet 的 score 用单调递增数，避免同毫秒登录时创建时间相同导致淘汰顺序错乱 */
     private static final java.util.concurrent.atomic.AtomicLong SESSION_SEQ =
             new java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis() * 1000L);

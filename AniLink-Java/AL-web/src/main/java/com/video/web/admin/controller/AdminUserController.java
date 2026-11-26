@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.video.common.login.LoginUserHolder;
 import com.video.common.result.Result;
 import com.video.web.admin.service.AdminUserService;
+import com.video.web.admin.vo.AdminResetPasswordVo;
 import com.video.web.admin.vo.AdminUserQueryVo;
 import com.video.web.admin.vo.AdminUserRoleVo;
 import com.video.web.admin.vo.AdminUserStatusVo;
@@ -12,6 +13,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -53,6 +55,12 @@ public class AdminUserController {
     public Result<Void> updateRole(@PathVariable Long uid, @RequestBody AdminUserRoleVo body) {
         adminUserService.updateRole(operatorUid(), uid, body.getRole());
         return Result.ok();
+    }
+
+    @Operation(summary = "重置用户密码，返回仅显示一次的临时密码")
+    @PostMapping("/{uid}/password/reset")
+    public Result<AdminResetPasswordVo> resetPassword(@PathVariable Long uid) {
+        return Result.ok(adminUserService.resetPassword(operatorUid(), uid));
     }
 
     private Long operatorUid() {

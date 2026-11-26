@@ -48,6 +48,21 @@
             <span v-else>{{ roleLabel(row.role) }}</span>
           </template>
         </el-table-column>
+        <el-table-column label="密码" width="120">
+          <template #default="{ row }">
+            <span>******</span>
+            <el-button
+              link
+              type="primary"
+              :disabled="!canReset(row) || resettingUid === row.uid"
+              :loading="resettingUid === row.uid"
+              title="重置密码"
+              @click="resetPassword(row)"
+            >
+              <el-icon><View /></el-icon>
+            </el-button>
+          </template>
+        </el-table-column>
         <el-table-column prop="createDate" label="注册时间" width="170" />
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
@@ -76,12 +91,29 @@
         />
       </div>
     </div>
+
+    <el-dialog
+      v-model="tempPasswordVisible"
+      title="临时密码"
+      width="480px"
+      @closed="clearTempPassword"
+    >
+      <p class="muted">
+        用户 {{ tempUsername }} 的密码已重置。请立即复制并转交用户，关闭弹窗后不再显示。
+      </p>
+      <el-input v-model="tempPassword" readonly>
+        <template #append>
+          <el-button @click="copyTempPassword">复制</el-button>
+        </template>
+      </el-input>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { View } from '@element-plus/icons-vue'
 import { adminApi } from '@/api/admin'
 import type { AdminUser } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
@@ -92,6 +124,10 @@ const keyword = ref('')
 const rows = ref<AdminUser[]>([])
 const total = ref(0)
 const loading = ref(false)
+const resettingUid = ref<number | null>(null)
+const tempPasswordVisible = ref(false)
+const tempPassword = ref('')
+const tempUsername = ref('')
 
 async function load() {
   loading.value = true
@@ -163,6 +199,55 @@ async function changeRole(row: AdminUser, role: number) {
   }
   ElMessage.success('角色已更新')
   load()
+}
+
+/** 普通管理员只能重置普通用户；超级管理员还能重置管理员。 */
+function canReset(row: AdminUser) {
+  return row.uid !== auth.profile?.uid && (row.role === 0 || auth.isSuper)
+}
+
+async function resetPassword(row: AdminUser) {
+  if (!canReset(row) || resettingUid.value !== null) return
+  try {
+    await ElMessageBox.confirm(
+      `确定重置用户「${row.nickname}」的密码吗？` +
+        '重置后原密码立即失效，该用户所有 refresh 会话会被注销，临时密码只显示一次。',
+      '重置密码',
+      { type: 'warning', confirmButtonText: '重置' },
+    )
+  } catch {
+    return
+  }
+
+  resettingUid.value = row.uid
+  try {
+    const result = await adminApi.resetUserPassword(row.uid)
+    if (result.code !== 200 || !result.data) {
+      ElMessage.error(result.message || '重置密码失败')
+      return
+    }
+    tempPassword.value = result.data.tempPassword
+    tempUsername.value = result.data.username
+    tempPasswordVisible.value = true
+  } catch {
+    ElMessage.error('重置密码失败')
+  } finally {
+    resettingUid.value = null
+  }
+}
+
+function clearTempPassword() {
+  tempPassword.value = ''
+  tempUsername.value = ''
+}
+
+async function copyTempPassword() {
+  try {
+    await navigator.clipboard.writeText(tempPassword.value)
+    ElMessage.success('临时密码已复制')
+  } catch {
+    ElMessage.warning('复制失败，请手动选择密码')
+  }
 }
 
 function statusLabel(status: number) {

@@ -4,6 +4,7 @@ import type {
   AdminMe,
   AdminObjectPage,
   AdminRef,
+  AdminResetPassword,
   AdminUser,
   AdminVideo,
   PageResult,
@@ -33,6 +34,10 @@ export const adminApi = {
     http.put<Result<void>>(`/main/admin/users/${uid}/status`, { status }).then((res) => res.data),
   userRole: (uid: number, role: number) =>
     http.put<Result<void>>(`/main/admin/users/${uid}/role`, { role }).then((res) => res.data),
+  resetUserPassword: (uid: number) =>
+    http
+      .post<Result<AdminResetPassword>>(`/main/admin/users/${uid}/password/reset`)
+      .then((res) => res.data),
 
   buckets: () => http.get<Result<string[]>>('/main/admin/storage/buckets').then((res) => res.data),
   objects: (params: Params) =>

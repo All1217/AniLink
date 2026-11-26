@@ -22,4 +22,8 @@ public interface AdminUserMapper {
     /** 更新角色（0 普通 / 1 管理员 / 2 超级管理员）。 */
     @Update("update user set role = #{role} where uid = #{uid}")
     int updateRole(@Param("uid") Long uid, @Param("role") Integer role);
+
+    /** 管理员重置密码：写入 bcrypt 哈希并记录修改时间。 */
+    @Update("update user set password = #{password}, password_updated_at = now() where uid = #{uid}")
+    int updatePassword(@Param("uid") Long uid, @Param("password") String password);
 }

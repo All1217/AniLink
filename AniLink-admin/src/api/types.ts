@@ -44,6 +44,12 @@ export interface AdminUser {
   createDate: string
 }
 
+export interface AdminResetPassword {
+  uid: number
+  username: string
+  tempPassword: string
+}
+
 export interface AdminObject {
   bucket: string
   key: string

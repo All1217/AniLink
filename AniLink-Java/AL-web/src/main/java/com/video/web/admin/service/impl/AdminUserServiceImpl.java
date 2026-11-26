@@ -4,26 +4,40 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.video.common.exception.VideoException;
 import com.video.common.result.ResultCodeEnum;
+import com.video.common.utils.PasswordUtil;
 import com.video.model.entity.UserInfo;
 import com.video.web.admin.mapper.AdminUserMapper;
 import com.video.web.admin.service.AdminUserService;
+import com.video.web.admin.vo.AdminResetPasswordVo;
 import com.video.web.admin.vo.AdminUserQueryVo;
 import com.video.web.admin.vo.AdminUserVo;
+import com.video.web.main.service.LoginService;
 import com.video.web.main.service.UserInfoService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-/** 用户管理：封禁/解封与超管角色调整。 */
+import java.security.SecureRandom;
+
+/** 用户管理：封禁/解封、超管角色调整与密码重置。 */
 @Slf4j
 @Service
 public class AdminUserServiceImpl implements AdminUserService {
 
+    private static final String UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    private static final String LOWER = "abcdefghijkmnopqrstuvwxyz";
+    private static final String DIGIT = "23456789";
+    private static final String ALL = UPPER + LOWER + DIGIT;
+    private static final SecureRandom RANDOM = new SecureRandom();
+
     private final AdminUserMapper adminUserMapper;
     private final UserInfoService userInfoService;
+    private final LoginService loginService;
 
-    public AdminUserServiceImpl(AdminUserMapper adminUserMapper, UserInfoService userInfoService) {
+    public AdminUserServiceImpl(AdminUserMapper adminUserMapper, UserInfoService userInfoService,
+                                LoginService loginService) {
         this.adminUserMapper = adminUserMapper;
         this.userInfoService = userInfoService;
+        this.loginService = loginService;
     }
 
     @Override
@@ -76,5 +90,54 @@ public class AdminUserServiceImpl implements AdminUserService {
         adminUserMapper.updateRole(uid, role);
         log.info("admin action operator={} action=user.role uid={} to={}",
                 operatorUid, uid, role);
+    }
+
+    @Override
+    public AdminResetPasswordVo resetPassword(Long operatorUid, Long uid) {
+        if (operatorUid.equals(uid)) {
+            throw new VideoException(ResultCodeEnum.ADMIN_ACCESS_FORBIDDEN.getCode(), "不能重置自己的密码");
+        }
+        UserInfo operator = userInfoService.getById(operatorUid);
+        if (operator == null || operator.getRole() == null || operator.getRole() < 1) {
+            throw new VideoException(ResultCodeEnum.ADMIN_ACCESS_FORBIDDEN);
+        }
+        AdminUserVo target = adminUserMapper.getAdminDetail(uid);
+        if (target == null) {
+            throw new VideoException(404, "用户不存在");
+        }
+        if (target.getRole() != null && target.getRole() >= 1 && operator.getRole() != 2) {
+            throw new VideoException(ResultCodeEnum.ADMIN_ACCESS_FORBIDDEN.getCode(),
+                    "只有超级管理员可以重置管理员密码");
+        }
+        String tempPassword = generateTempPassword();
+        if (adminUserMapper.updatePassword(uid, PasswordUtil.encode(tempPassword)) != 1) {
+            throw new VideoException(ResultCodeEnum.APP_SERVER_ERROR.getCode(), "重置密码失败");
+        }
+        try {
+            loginService.revokeAllSessions(uid);
+        } catch (Exception e) {
+            // 密码已经更新成功，会话吊销失败只记录，避免临时密码无法返回
+            log.warn("重置密码后吊销用户 {} 会话失败", uid, e);
+        }
+        log.info("admin action operator={} action=user.password.reset uid={}", operatorUid, uid);
+        AdminResetPasswordVo result = new AdminResetPasswordVo();
+        result.setUid(uid);
+        result.setUsername(target.getUsername());
+        result.setTempPassword(tempPassword);
+        return result;
+    }
+
+    /** 12 位临时密码：至少包含大写、小写、数字，排除易混淆字符。 */
+    private String generateTempPassword() {
+        StringBuilder builder = new StringBuilder(12);
+        builder.append(pick(UPPER)).append(pick(LOWER)).append(pick(DIGIT));
+        for (int i = 3; i < 12; i++) {
+            builder.append(pick(ALL));
+        }
+        return builder.toString();
+    }
+
+    private char pick(String chars) {
+        return chars.charAt(RANDOM.nextInt(chars.length()));
     }
 }
