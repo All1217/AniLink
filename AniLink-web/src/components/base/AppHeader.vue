@@ -32,7 +32,7 @@
 
         <el-dropdown v-if="userStore.isLogin" trigger="hover" @command="onCommand">
           <span class="header__avatar">
-            <img :src="avatarUrl" alt="头像" />
+            <img :src="avatarUrl" alt="头像" @error="onAvatarError" />
           </span>
           <template #dropdown>
             <el-dropdown-menu>
@@ -59,13 +59,30 @@ import SearchBox from '@/components/base/SearchBox.vue'
 import { partitions } from '@/config/site'
 import { useUserStore } from '@/stores/user'
 import { fetchWhisperUnread } from '@/api/chat'
+import { AVATAR_PLACEHOLDER } from '@/utils/media'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const unread = ref(0)
+/** 头像加载失败时回退本地占位，不再依赖外站图片 */
+const avatarBroken = ref(false)
 
-const avatarUrl = computed(() => userStore.avatar || 'https://static.hdslb.com/images/akari.jpg')
+const avatarUrl = computed(() =>
+  avatarBroken.value ? AVATAR_PLACEHOLDER : userStore.avatar || AVATAR_PLACEHOLDER,
+)
+
+function onAvatarError() {
+  avatarBroken.value = true
+}
+
+// 换了头像就重置失败标记，让新地址重新尝试加载
+watch(
+  () => userStore.avatar,
+  () => {
+    avatarBroken.value = false
+  },
+)
 
 /** 未读私信数：登录后拉一次，切路由时刷新 */
 async function loadUnread() {

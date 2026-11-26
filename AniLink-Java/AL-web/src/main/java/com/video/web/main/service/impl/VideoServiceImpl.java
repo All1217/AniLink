@@ -11,6 +11,7 @@ import com.video.web.main.service.VideoService;
 import com.video.web.main.vo.UserVideoQueryVo;
 import com.video.web.main.vo.VideoQueryVo;
 import com.video.web.main.vo.VideoVo;
+import com.video.web.main.util.ImageUrls;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -30,6 +31,8 @@ public class VideoServiceImpl implements VideoService {
     @Transactional
     public void insertOne(Video video) {
         video.setUploadDate(new Date());
+        // 封面存的是 960w 主图，480w 缩略图地址按命名约定推导后一起落库
+        video.setCoverThumbUrl(ImageUrls.thumbOf(video.getCoverUrl()));
         videoMapper.insertOne(video);
         VideoStats videoStats = new VideoStats();
         videoStats.setVid(video.getVid());

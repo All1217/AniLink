@@ -18,6 +18,7 @@
         v.vid,
         v.title,
         v.cover_url,
+        coalesce(v.cover_thumb_url, v.cover_url) AS cover_thumb_url,
         v.duration AS video_duration,
         h.id, h.view_time, h.duration, h.is_finish, h.device, h.ip, h.is_delete,
         u.nickname,

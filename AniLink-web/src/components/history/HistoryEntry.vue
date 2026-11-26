@@ -1,7 +1,7 @@
 <template>
   <article class="entry">
     <RouterLink :to="`/video/${item.vid}`" class="entry__cover">
-      <img :src="item.coverUrl || PLACEHOLDER" :alt="item.title" loading="lazy" />
+      <img :src="coverThumb(item)" :alt="item.title" loading="lazy" decoding="async" @error="onImgError" />
       <span class="entry__duration">
         {{ formatDuration(item.duration) }}/{{ formatDuration(item.videoDuration) }}
       </span>
@@ -23,15 +23,17 @@ import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { HistoryVo } from '@/types'
 import { formatDuration } from '@/utils/format'
+import { COVER_PLACEHOLDER, coverThumb } from '@/utils/media'
 
 const props = defineProps<{ item: HistoryVo }>()
 const emit = defineEmits<{ (e: 'delete', vid: number): void }>()
 
-const PLACEHOLDER =
-  'data:image/svg+xml;charset=utf-8,' +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90"><rect width="160" height="90" fill="#e3e5e7"/></svg>',
-  )
+/** 坏图直接换成占位图，避免整行裂图 */
+function onImgError(event: Event) {
+  const img = event.target as HTMLImageElement
+  img.removeAttribute('srcset')
+  img.src = COVER_PLACEHOLDER
+}
 
 /** 观看进度条宽度（百分比，封顶 100%） */
 const progress = computed(() => {

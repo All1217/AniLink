@@ -17,7 +17,7 @@ import org.apache.ibatis.annotations.Update;
 import java.util.List;
 
 public interface VideoMapper extends BaseMapper<Video> {
-    @Insert("insert into video (uid, title, type, auth, duration, mc_id, sc_id, tags, descr, status, visible, cover_url, video_url, upload_date, delete_date) values (#{uid}, #{title}, #{type}, #{auth}, #{duration}, #{mcId}, #{scId}, #{tags}, #{descr}, #{status}, #{visible}, #{coverUrl}, #{videoUrl}, #{uploadDate}, #{deleteDate})")
+    @Insert("insert into video (uid, title, type, auth, duration, mc_id, sc_id, tags, descr, status, visible, cover_url, cover_thumb_url, video_url, upload_date, delete_date) values (#{uid}, #{title}, #{type}, #{auth}, #{duration}, #{mcId}, #{scId}, #{tags}, #{descr}, #{status}, #{visible}, #{coverUrl}, #{coverThumbUrl}, #{videoUrl}, #{uploadDate}, #{deleteDate})")
     @Options(useGeneratedKeys = true, keyProperty = "vid", keyColumn = "vid")
     void insertOne(Video video);
 

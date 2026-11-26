@@ -1,5 +1,6 @@
 package com.video.web.admin.service;
 
+import com.video.web.admin.vo.AdminBackfillResultVo;
 import com.video.web.admin.vo.AdminCleanupResultVo;
 import com.video.web.admin.vo.AdminObjectPageVo;
 import com.video.web.admin.vo.AdminRefVo;
@@ -19,4 +20,7 @@ public interface AdminStorageService {
 
     /** 扫描当前桶/前缀下全部对象，删除无业务引用的对象。 */
     AdminCleanupResultVo cleanup(String bucket, String prefix, Long operatorUid);
+
+    /** 为缺缩略图的存量封面生成 480w WebP 并写回，返回扫描/成功/跳过/失败数量。 */
+    AdminBackfillResultVo backfillCoverThumbs(Long operatorUid);
 }

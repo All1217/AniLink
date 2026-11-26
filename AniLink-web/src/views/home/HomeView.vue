@@ -31,63 +31,116 @@
       </div>
     </section>
 
-    <!-- 分区入口 -->
+    <!-- 分区筛选 + 换一批 -->
     <nav class="channels">
-      <span v-for="item in partitions" :key="item.id" class="channels__item" @click="notReady">
-        {{ item.name }}
-      </span>
+      <div class="channels__list">
+        <span
+          v-for="item in partitionOptions"
+          :key="item.id"
+          :class="['channels__item', { 'is-active': activeMcId === item.id }]"
+          @click="selectPartition(item.id)"
+        >
+          {{ item.name }}
+        </span>
+      </div>
+      <button class="channels__refresh" :disabled="loading" @click="nextBatch">
+        <el-icon><Refresh /></el-icon>
+        换一批
+      </button>
     </nav>
 
-    <!-- 推荐流 -->
-    <section class="grid">
-      <VideoCard v-for="video in videos" :key="video.vid" :video="video" />
+    <!-- 推荐流：每批 20 条，换一批整体替换；首行 5 张按高优先级加载 -->
+    <section v-if="videos.length > 0 && !loading" class="grid">
+      <VideoCard
+        v-for="(video, i) in videos"
+        :key="video.vid"
+        :video="video"
+        :priority="i < 5"
+      />
     </section>
 
     <div v-if="loading" class="grid grid--skeleton">
       <div v-for="i in 10" :key="i" class="skeleton" />
     </div>
 
-    <EmptyState v-if="!loading && videos.length === 0" text="还没有视频，去投稿第一个吧" />
-    <p v-if="exhausted && videos.length > 0" class="end">已经到底啦 ~</p>
-
-    <div ref="sentinel" class="sentinel" />
+    <EmptyState v-if="!loading && videos.length === 0" :text="emptyText" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { ArrowLeft, ArrowRight, Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import VideoCard from '@/components/base/VideoCard.vue'
 import EmptyState from '@/components/base/EmptyState.vue'
-import { PAGE_SIZE, partitions, slides } from '@/config/site'
+import { ALL_PARTITION, PAGE_SIZE, partitions, slides } from '@/config/site'
 import { fetchVideoPage } from '@/api/video'
 import type { VideoVo } from '@/types'
 
 const videos = ref<VideoVo[]>([])
 const loading = ref(false)
-const exhausted = ref(false)
-const current = ref(1)
-const sentinel = ref<HTMLElement | null>(null)
+const batch = ref(1)
+const activeMcId = ref(ALL_PARTITION.id)
+const total = ref(0)
 const index = ref(0)
-let observer: IntersectionObserver | null = null
 let timer: number | undefined
+/** 请求序号：分区切换比接口快时，丢弃过期响应 */
+let requestSeq = 0
 
-/** 分页拉取首页推荐流，到底后停止 */
-async function loadMore() {
-  if (loading.value || exhausted.value) return
+/** 分区标签：首位固定「全部」 */
+const partitionOptions = computed(() => [ALL_PARTITION, ...partitions])
+
+const emptyText = computed(() =>
+  activeMcId.value === ALL_PARTITION.id ? '还没有视频，去投稿第一个吧' : '该分区还没有视频，换一个看看吧',
+)
+
+/** 加载当前分区第 batch 批，整体替换列表 */
+async function loadBatch() {
+  const seq = ++requestSeq
   loading.value = true
   try {
-    const page = await fetchVideoPage({ current: current.value, size: PAGE_SIZE })
-    const records = page.records ?? []
-    videos.value.push(...records)
-    current.value += 1
-    if (records.length === 0 || videos.value.length >= (page.total ?? 0)) exhausted.value = true
+    const page = await fetchVideoPage({
+      current: batch.value,
+      size: PAGE_SIZE,
+      mcId: activeMcId.value > 0 ? activeMcId.value : undefined,
+    })
+    if (seq !== requestSeq) return
+    videos.value = page.records ?? []
+    total.value = page.total ?? 0
   } catch {
-    exhausted.value = true
+    if (seq !== requestSeq) return
+    videos.value = []
+    total.value = 0
+    ElMessage.error('视频加载失败，请稍后再试')
   } finally {
-    loading.value = false
+    if (seq === requestSeq) loading.value = false
   }
+}
+
+/** 换一批：到最后一页后循环回第 1 批，按钮始终可用 */
+function nextBatch() {
+  const pages = Math.ceil(total.value / PAGE_SIZE)
+  if (pages === 0) {
+    ElMessage.info('该分区还没有视频')
+    return
+  }
+  if (batch.value >= pages) {
+    batch.value = 1
+    ElMessage.info('已经到底，回到第一批')
+  } else {
+    batch.value += 1
+  }
+  void loadBatch()
+}
+
+/** 切分区：重置批次，从该分区第 1 批重新加载 */
+function selectPartition(id: number) {
+  if (activeMcId.value === id) return
+  activeMcId.value = id
+  batch.value = 1
+  videos.value = []
+  total.value = 0
+  void loadBatch()
 }
 
 function move(step: number) {
@@ -98,24 +151,12 @@ function openSlide(href?: string) {
   if (href) window.open(href, '_blank', 'noreferrer')
 }
 
-function notReady() {
-  ElMessage.info('该分区暂未开放，敬请期待')
-}
-
 onMounted(() => {
-  void loadMore()
-  observer = new IntersectionObserver(
-    (entries) => {
-      if (entries[0]?.isIntersecting) void loadMore()
-    },
-    { rootMargin: '200px' },
-  )
-  if (sentinel.value) observer.observe(sentinel.value)
+  void loadBatch()
   timer = window.setInterval(() => move(1), 5000)
 })
 
 onBeforeUnmount(() => {
-  observer?.disconnect()
   if (timer) window.clearInterval(timer)
 })
 </script>
@@ -214,9 +255,16 @@ onBeforeUnmount(() => {
 
 .channels {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 12px;
   margin: 16px 0;
+
+  &__list {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
 
   &__item {
     padding: 5px 14px;
@@ -225,10 +273,41 @@ onBeforeUnmount(() => {
     font-size: t.$fs-sm;
     color: var(--text-2);
     cursor: pointer;
+    transition: background 0.2s, color 0.2s;
 
     &:hover {
       background: var(--brand-soft, #fff1f5);
       color: var(--brand);
+    }
+
+    &.is-active {
+      background: var(--brand);
+      color: #fff;
+    }
+  }
+
+  &__refresh {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 14px;
+    border: none;
+    border-radius: 14px;
+    background: #fff;
+    font-size: t.$fs-sm;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+
+    &:hover:not(:disabled) {
+      background: var(--brand-soft, #fff1f5);
+      color: var(--brand);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
   }
 }
@@ -237,17 +316,6 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 20px 16px;
-}
-
-.end {
-  padding: 24px 0;
-  text-align: center;
-  font-size: t.$fs-xs;
-  color: var(--text-3);
-}
-
-.sentinel {
-  height: 1px;
 }
 
 .skeleton {

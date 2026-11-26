@@ -26,4 +26,7 @@ public class HistoryVo extends BrowseHistory {
 
     @Schema(description="封面")
     private String coverUrl;
+
+    @Schema(description="封面缩略图（480w），旧数据回退为 coverUrl")
+    private String coverThumbUrl;
 }

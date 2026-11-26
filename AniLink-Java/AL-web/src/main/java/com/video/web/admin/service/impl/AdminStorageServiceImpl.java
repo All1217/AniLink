@@ -4,15 +4,22 @@ import com.video.common.constant.MinioConstant;
 import com.video.common.exception.VideoException;
 import com.video.common.properties.MinIOProperties;
 import com.video.common.result.ResultCodeEnum;
+import com.video.web.admin.mapper.AdminCoverBackfillMapper;
 import com.video.web.admin.mapper.AdminStorageRefMapper;
 import com.video.web.admin.service.AdminStorageService;
+import com.video.web.admin.vo.AdminBackfillResultVo;
 import com.video.web.admin.vo.AdminCleanupResultVo;
+import com.video.web.admin.vo.AdminCoverBackfillVo;
 import com.video.web.admin.vo.AdminObjectPageVo;
 import com.video.web.admin.vo.AdminObjectVo;
 import com.video.web.admin.vo.AdminRefVo;
+import com.video.web.main.service.ImageProcessService;
+import com.video.web.main.util.ImageUrls;
+import io.minio.GetObjectArgs;
 import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.ListObjectsArgs;
 import io.minio.MinioClient;
+import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
 import io.minio.Result;
 import io.minio.http.Method;
@@ -20,6 +27,8 @@ import io.minio.messages.Item;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -39,16 +48,24 @@ public class AdminStorageServiceImpl implements AdminStorageService {
             MinioConstant.VIDEO_COVER_BUCKET
     );
     private static final int CLEANUP_PAGE_SIZE = 200;
+    private static final int BACKFILL_PAGE_SIZE = 50;
+    private static final String WEBP_CONTENT_TYPE = "image/webp";
+    private static final String IMMUTABLE_CACHE = "public, max-age=31536000, immutable";
 
     private final MinioClient minioClient;
     private final MinIOProperties minIOProperties;
     private final AdminStorageRefMapper refMapper;
+    private final AdminCoverBackfillMapper backfillMapper;
+    private final ImageProcessService imageProcessService;
 
     public AdminStorageServiceImpl(MinioClient minioClient, MinIOProperties minIOProperties,
-                                   AdminStorageRefMapper refMapper) {
+                                   AdminStorageRefMapper refMapper, AdminCoverBackfillMapper backfillMapper,
+                                   ImageProcessService imageProcessService) {
         this.minioClient = minioClient;
         this.minIOProperties = minIOProperties;
         this.refMapper = refMapper;
+        this.backfillMapper = backfillMapper;
+        this.imageProcessService = imageProcessService;
     }
 
     @Override
@@ -175,6 +192,104 @@ public class AdminStorageServiceImpl implements AdminStorageService {
                 operatorUid, bucket, normalizedPrefix, result.getScanned(),
                 result.getDeleted(), result.getSkipped(), result.getFailed());
         return result;
+    }
+
+    @Override
+    public AdminBackfillResultVo backfillCoverThumbs(Long operatorUid) {
+        AdminBackfillResultVo result = new AdminBackfillResultVo();
+        String endpoint = endpoint();
+        if (endpoint == null) {
+            throw new VideoException(ResultCodeEnum.APP_SERVER_ERROR.getCode(), "MinIO 地址未配置");
+        }
+        // 按 vid 游标分批，只处理 cover_thumb_url 为空的稿件，重复触发不会重复生成
+        long afterVid = 0L;
+        while (true) {
+            List<AdminCoverBackfillVo> batch = backfillMapper.listMissingThumbs(afterVid, BACKFILL_PAGE_SIZE);
+            if (batch.isEmpty()) {
+                break;
+            }
+            for (AdminCoverBackfillVo row : batch) {
+                afterVid = row.getVid();
+                result.setScanned(result.getScanned() + 1);
+                String key = videoCoverKey(row.getCoverUrl(), endpoint);
+                if (key == null) {
+                    result.setSkipped(result.getSkipped() + 1);
+                    continue;
+                }
+                String thumbKey = thumbKeyOf(key);
+                String thumbUrl = endpoint + "/" + MinioConstant.VIDEO_COVER_BUCKET + "/" + thumbKey;
+                try {
+                    byte[] source = readObject(MinioConstant.VIDEO_COVER_BUCKET, key);
+                    byte[] thumb = imageProcessService.coverThumb(source, extOf(key));
+                    putBytes(MinioConstant.VIDEO_COVER_BUCKET, thumbKey, thumb);
+                    if (backfillMapper.updateThumb(row.getVid(), thumbUrl) == 1) {
+                        result.setUpdated(result.getUpdated() + 1);
+                    } else {
+                        result.setSkipped(result.getSkipped() + 1);
+                    }
+                } catch (Exception e) {
+                    result.setFailed(result.getFailed() + 1);
+                    log.warn("回填封面缩略图失败：vid={}, cover={}", row.getVid(), row.getCoverUrl(), e);
+                }
+            }
+            if (batch.size() < BACKFILL_PAGE_SIZE) {
+                break;
+            }
+        }
+        log.info("admin action operator={} action=image.backfill scanned={} updated={} skipped={} failed={}",
+                operatorUid, result.getScanned(), result.getUpdated(), result.getSkipped(), result.getFailed());
+        return result;
+    }
+
+    /** 读对象内容；独立成 protected 便于单测覆盖，不依赖真实 MinIO */
+    protected byte[] readObject(String bucket, String key) throws Exception {
+        try (InputStream in = minioClient.getObject(GetObjectArgs.builder().bucket(bucket).object(key).build())) {
+            return in.readAllBytes();
+        }
+    }
+
+    /** 派生图字节直接入桶，沿用长期不可变缓存 */
+    private void putBytes(String bucket, String key, byte[] data) throws Exception {
+        try (InputStream in = new ByteArrayInputStream(data)) {
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket(bucket)
+                    .object(key)
+                    .stream(in, data.length, -1)
+                    .contentType(WEBP_CONTENT_TYPE)
+                    .headers(Map.of("Cache-Control", IMMUTABLE_CACHE))
+                    .build());
+        }
+    }
+
+    /** 只处理本 MinIO 的 video-cover 对象，外链封面计入跳过 */
+    private String videoCoverKey(String url, String endpoint) {
+        String prefix = endpoint + "/" + MinioConstant.VIDEO_COVER_BUCKET + "/";
+        if (url == null || !url.startsWith(prefix)) {
+            return null;
+        }
+        String key = url.substring(prefix.length());
+        return key.isBlank() ? null : key;
+    }
+
+    /** 旧封面名可能是 uuid.jpg，统一派生成 uuid_480.webp */
+    private String thumbKeyOf(String key) {
+        if (key.endsWith(ImageUrls.LARGE_SUFFIX)) {
+            return key.substring(0, key.length() - ImageUrls.LARGE_SUFFIX.length()) + ImageUrls.THUMB_SUFFIX;
+        }
+        int dot = key.lastIndexOf('.');
+        String base = dot < 0 ? key : key.substring(0, dot);
+        return base + ImageUrls.THUMB_SUFFIX;
+    }
+
+    /** 对象后缀，用于告诉 ffmpeg 输入格式 */
+    private String extOf(String key) {
+        int dot = key.lastIndexOf('.');
+        return dot < 0 ? "" : key.substring(dot);
+    }
+
+    private String endpoint() {
+        String endpoint = minIOProperties.getEndpoint();
+        return (endpoint == null || endpoint.isBlank()) ? null : endpoint.replaceAll("/+$", "");
     }
 
     /** 汇总视频/用户/HLS 目录引用，按 type:id:field 去重。 */

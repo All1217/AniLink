@@ -1,5 +1,6 @@
 import http from './client'
 import type {
+  AdminBackfillResult,
   AdminCleanupResult,
   AdminMe,
   AdminObjectPage,
@@ -53,5 +54,10 @@ export const adminApi = {
   cleanup: (bucket: string, prefix?: string) =>
     http
       .post<Result<AdminCleanupResult>>('/main/admin/storage/cleanup', null, { params: { bucket, prefix } })
+      .then((res) => res.data),
+  backfillCoverThumbs: () =>
+    http
+      // 批量转码可能超过全局 20s 超时，单独放宽到 3 分钟
+      .post<Result<AdminBackfillResult>>('/main/admin/storage/cover-thumbs/backfill', null, { timeout: 180000 })
       .then((res) => res.data),
 }

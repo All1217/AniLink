@@ -23,6 +23,9 @@
         <el-button type="danger" plain :loading="cleaning" :disabled="busy" @click="cleanup">
           一键清除冗余存储
         </el-button>
+        <el-button type="warning" plain :loading="backfilling" :disabled="busy" @click="backfillCoverThumbs">
+          重建封面缩略图
+        </el-button>
       </div>
 
       <el-table v-loading="busy" element-loading-text="正在处理，请稍候..." :data="objects" border>
@@ -57,7 +60,8 @@ const nextCursor = ref<string | null>(null)
 const hasMore = ref(false)
 const loading = ref(false)
 const cleaning = ref(false)
-const busy = computed(() => loading.value || cleaning.value)
+const backfilling = ref(false)
+const busy = computed(() => loading.value || cleaning.value || backfilling.value)
 
 async function loadBuckets() {
   const result = await adminApi.buckets()
@@ -179,6 +183,46 @@ async function cleanup() {
     ElMessage.error('清理失败')
   } finally {
     cleaning.value = false
+  }
+}
+
+/** 为缺少缩略图的历史封面补生成 480w WebP，重复执行会跳过已处理的稿件 */
+async function backfillCoverThumbs() {
+  if (busy.value) return
+  try {
+    await ElMessageBox.confirm(
+      '将为缺少缩略图的历史封面生成 480w WebP 并写回，已处理的稿件会自动跳过。是否继续？',
+      '重建封面缩略图',
+      { type: 'info', confirmButtonText: '开始', cancelButtonText: '取消' },
+    )
+  } catch {
+    return
+  }
+
+  backfilling.value = true
+  try {
+    const result = await adminApi.backfillCoverThumbs()
+    if (result.code !== 200 || !result.data) {
+      ElMessage.error(result.message || '回填失败')
+      return
+    }
+    const { scanned, updated, skipped, failed } = result.data
+    const summary =
+      `扫描 ${scanned} 条，生成 ${updated} 个缩略图，跳过 ${skipped} 条` +
+      (failed > 0 ? `，失败 ${failed} 条` : '')
+    if (failed > 0) {
+      ElMessage.warning(summary)
+    } else {
+      ElMessage.success(summary)
+    }
+    if (bucket.value === 'video-cover') await load(true)
+  } catch (error) {
+    // 把 axios 的真实原因带出来，避免只看到一句“回填失败”
+    const err = error as { message?: string; response?: { status?: number; data?: { message?: string } } }
+    const detail = err.response?.data?.message || err.message || '未知错误'
+    ElMessage.error(`回填失败：${detail}${err.response?.status ? `（HTTP ${err.response.status}）` : ''}`)
+  } finally {
+    backfilling.value = false
   }
 }
 

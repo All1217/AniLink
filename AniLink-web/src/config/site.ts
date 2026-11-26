@@ -1,8 +1,11 @@
-/** 首页分区配置：B 站一级分区名，点击暂只做提示（后端无分区筛选接口） */
+/** 首页分区配置：id 与 video.mc_id 对应，点击后按 mcId 过滤 pageVideo 接口 */
 export interface PartitionItem {
   id: number
   name: string
 }
+
+/** 「全部」虚拟分区：id 为 0 时不传 mcId，表示不筛分区 */
+export const ALL_PARTITION: PartitionItem = { id: 0, name: '全部' }
 
 export const partitions: PartitionItem[] = [
   { id: 1, name: '动画' },

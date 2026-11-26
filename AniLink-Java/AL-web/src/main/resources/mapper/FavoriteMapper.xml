@@ -13,6 +13,7 @@
                v.title,
                v.duration,
                v.cover_url AS coverUrl,
+               coalesce(v.cover_thumb_url, v.cover_url) AS cover_thumb_url,
                v.upload_date AS uploadDate,
                v.vid,
                vs.play,

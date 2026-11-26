@@ -3,6 +3,7 @@ package com.video.web.admin.controller;
 import com.video.common.login.LoginUserHolder;
 import com.video.common.result.Result;
 import com.video.web.admin.service.AdminStorageService;
+import com.video.web.admin.vo.AdminBackfillResultVo;
 import com.video.web.admin.vo.AdminCleanupResultVo;
 import com.video.web.admin.vo.AdminObjectPageVo;
 import com.video.web.admin.vo.AdminRefVo;
@@ -67,6 +68,12 @@ public class AdminStorageController {
     public Result<AdminCleanupResultVo> cleanup(@RequestParam String bucket,
                                                 @RequestParam(required = false) String prefix) {
         return Result.ok(adminStorageService.cleanup(bucket, prefix, operatorUid()));
+    }
+
+    @Operation(summary = "重建存量封面缩略图")
+    @PostMapping("/cover-thumbs/backfill")
+    public Result<AdminBackfillResultVo> backfillCoverThumbs() {
+        return Result.ok(adminStorageService.backfillCoverThumbs(operatorUid()));
     }
 
     private Long operatorUid() {

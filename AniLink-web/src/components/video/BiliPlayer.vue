@@ -143,6 +143,7 @@ onMounted(async () => {
     url: playUrl.value,
     type: props.video.hlsUrl ? 'm3u8' : undefined,
     customType: hls.customType,
+    // 海报用 960w 主封面（新上传即 _960.webp），不必再走列表缩略图
     poster: props.video.coverUrl,
     autoplay: false,
     autoSize: true,

@@ -14,6 +14,7 @@ AniLink 是一个仿 B 站（bilibili）的视频社区全栈项目，原为三�
 - 账号体系：`user.username` 是用户自选的登录名（唯一、大小写不敏感、本期不可改，2-20 位中英文/数字/下划线且不能纯数字），`user.nickname` 仅用于展示（可重复、可改）；密码用 bcrypt（Hutool `BCrypt`，cost 10）存储，历史 MD5 在登录成功时就地升级；登录失败统一返回 307 且按「账号 5 次 / IP 20 次（15 分钟窗口）」限流（212），改密接口需校验旧密码并吊销全部会话。
 - 视频播放：投稿后 `AL-web` 用 ffmpeg 异步转 HLS（单线程队列，`al.transcode.*`，ffmpeg 路径由 `AL_FFMPEG_PATH` 覆盖），产物在 MinIO 的 `video` 桶 `hls/{vid}/`（6s fMP4 分片 + `index.m3u8`），状态写 `video.transcode_status`（0 待转 / 1 转中 / 2 完成 / 3 失败），完成后写 `video.hls_url`；前端 `hls.js`（动态 import，优先 MSE；只有不支持 MSE 的浏览器才退回原生 HLS，Safari 原生 HLS 只在该分支生效）优先播 `hlsUrl`，为空或致命错误回退 `videoUrl`（MP4 + Range）。转码还会把原 MP4 重封装成 faststart（moov 前置），对象名不变；视频码率按「源码率 ×1.15 封顶，且不超过 `al.transcode.max-bitrate-kbps`」控制（ffprobe 读源码率，缺失时退回配置上限）。启动时自动补跑 `transcode_status=0` 的稿件，所以**不要手工改这一列**。
 - 依赖服务：Nacos（注册 + 共享配置）、MySQL、Redis、RabbitMQ、MinIO、Elasticsearch；地址与口令不在文档里复述，见各服务配置。
+- 图片链路：封面/头像上传后由 `AL-web` 用 ffmpeg 生成 WebP 派生图（封面 480w/960w，头像 192 方图），派生失败回退原图；`video.cover_url` 存 960 主图、`video.cover_thumb_url` 存 480 缩略图，列表接口返回 `coverThumbUrl`，前端列表用缩略图 + `srcset`，首行 `eager` + `fetchpriority=high`。头像未设置时由前端内置占位图兜底，`user.avatar` 不再写入内网默认地址。配置项 `al.image.*`，ffmpeg 路径复用 `al.transcode.ffmpeg-path`。
 
 ## 仓库结构
 

@@ -64,6 +64,10 @@ public class Video implements Serializable {
     @TableField(value = "cover_url")
     private String coverUrl;
 
+    @Schema(description = "封面缩略图url（480w），为空时前端回退 coverUrl")
+    @TableField(value = "cover_thumb_url")
+    private String coverThumbUrl;
+
     @Schema(description = "视频url")
     @TableField(value = "video_url")
     private String videoUrl;

@@ -18,6 +18,8 @@
 mysql -u root -p < db/schema.sql
 ```
 
+已有库升级请按日期执行 `db/migrations/` 下的增量脚本，例如 `2026-11-26-video-cover-thumb-url.sql`（给 `video` 增加 `cover_thumb_url`，用于 480w 封面缩略图）。新建库直接执行 `schema.sql` 即可，脚本里已包含该列。
+
 脚本特性：
 
 - `CREATE DATABASE IF NOT EXISTS`：不会删除已有库。

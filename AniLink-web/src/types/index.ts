@@ -82,6 +82,8 @@ export interface VideoVo extends VideoStats {
   title: string
   duration: number
   coverUrl: string
+  /** 480w 封面缩略图；旧数据缺失时回退 coverUrl */
+  coverThumbUrl?: string | null
   uploadDate: string
 }
 
@@ -263,6 +265,8 @@ export interface HistoryVo extends BrowseHistory {
   title: string
   videoDuration: number
   coverUrl: string
+  /** 480w 封面缩略图；旧数据缺失时回退 coverUrl */
+  coverThumbUrl?: string | null
 }
 
 /** 会话行（后端 Chat 实体） */

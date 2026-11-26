@@ -25,6 +25,9 @@ public class VideoVo extends VideoStats {
     @Schema(description="封面")
     private String coverUrl;
 
+    @Schema(description="封面缩略图（480w），旧数据回退为 coverUrl")
+    private String coverThumbUrl;
+
     @Schema(description="上传时间")
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private Date uploadDate;

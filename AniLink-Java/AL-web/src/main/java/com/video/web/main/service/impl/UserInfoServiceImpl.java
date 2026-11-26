@@ -27,7 +27,6 @@ import java.util.Date;
 import java.util.List;
 
 import static com.video.common.constant.Constant.UNIQUE_UID_KEY;
-import static com.video.common.constant.MinioConstant.DEFAULT_AVATAR;
 import static com.video.common.result.ResultCodeEnum.APP_SERVER_ERROR;
 
 @Service
@@ -79,7 +78,7 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
         userInfo.setUid(uid);
         userInfo.setUsername(username);
         userInfo.setNickname(nickname);
-        userInfo.setAvatar(DEFAULT_AVATAR);
+        // 头像留空，由前端显示内置占位图；不再写入内网默认头像地址
         userInfo.setPassword(PasswordUtil.encode(registerVo.getPassword()));
         userInfo.setCreateDate(new Date());
         try {

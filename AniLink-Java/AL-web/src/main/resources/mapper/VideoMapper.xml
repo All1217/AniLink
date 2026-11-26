@@ -6,11 +6,12 @@
     <select id="pageItem" resultType="com.video.web.main.vo.VideoVo">
         select u.nickname, v.uid,
         v.title, v.duration, v.cover_url, v.upload_date, v.vid,
+        coalesce(v.cover_thumb_url, v.cover_url) as cover_thumb_url,
         vs.play, vs.danmu, vs.good, vs.bad, vs.coin,
         vs.collect, vs.share, vs.comment
         from
         (select video.vid, video.uid, video.title, video.mc_id, video.duration,
-        video.cover_url, video.upload_date, video.visible, video.status
+        video.cover_url, video.cover_thumb_url, video.upload_date, video.visible, video.status
         from video
         <where>
             visible = 0 and status = 1
@@ -50,19 +51,25 @@
         share,
         comment
         from video_stats) vs on v.vid = vs.vid
-        <if test="queryVo.sortField != null and queryVo.sortField != ''">
-            order by ${queryVo.sortField} desc
-        </if>
+        <choose>
+            <when test="queryVo.sortField != null and queryVo.sortField != ''">
+                order by ${queryVo.sortField} desc
+            </when>
+            <otherwise>
+                order by v.upload_date desc, v.vid desc
+            </otherwise>
+        </choose>
     </select>
 
     <select id="batchSelect" resultType="com.video.web.main.vo.VideoVo">
         select u.nickname, v.uid,
         v.title, v.duration, v.cover_url, v.upload_date, v.vid,
+        coalesce(v.cover_thumb_url, v.cover_url) as cover_thumb_url,
         vs.play, vs.danmu, vs.good, vs.bad, vs.coin,
         vs.collect, vs.share, vs.comment
         from
         (select video.vid, video.uid, video.title, video.mc_id, video.duration,
-        video.cover_url, video.upload_date, video.visible, video.status
+        video.cover_url, video.cover_thumb_url, video.upload_date, video.visible, video.status
         from video
         <where>
             visible = 0 and status = 1

@@ -2,12 +2,14 @@ package com.video.web.admin;
 
 import com.video.common.exception.VideoException;
 import com.video.common.properties.MinIOProperties;
+import com.video.web.admin.mapper.AdminCoverBackfillMapper;
 import com.video.web.admin.mapper.AdminStorageRefMapper;
 import com.video.web.admin.service.impl.AdminStorageServiceImpl;
 import com.video.web.admin.vo.AdminCleanupResultVo;
 import com.video.web.admin.vo.AdminObjectPageVo;
 import com.video.web.admin.vo.AdminObjectVo;
 import com.video.web.admin.vo.AdminRefVo;
+import com.video.web.main.service.ImageProcessService;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,10 @@ class AdminStorageTest {
     private MinIOProperties minIOProperties;
     @Mock
     private AdminStorageRefMapper refMapper;
+    @Mock
+    private AdminCoverBackfillMapper backfillMapper;
+    @Mock
+    private ImageProcessService imageProcessService;
     @InjectMocks
     private AdminStorageServiceImpl service;
 
@@ -144,6 +150,17 @@ class AdminStorageTest {
         assertEquals(1, result.getSkipped());
         assertEquals(0, result.getFailed());
         verify(minioClient).removeObject(any());
+    }
+
+    @Test
+    void referencedCoverThumbIsNotDeleted() throws Exception {
+        when(refMapper.findVideoRefs(anyString())).thenReturn(List.of(ref("video", 3L, "cover_thumb_url")));
+        when(refMapper.findUserRefs(anyString())).thenReturn(List.of());
+
+        List<AdminRefVo> refs = service.delete("video-cover", "a_480.webp", 9L);
+
+        assertEquals(1, refs.size());
+        verify(minioClient, never()).removeObject(any());
     }
 
     private AdminObjectVo object(String key) {

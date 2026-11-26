@@ -26,6 +26,15 @@ public final class FfmpegRunner {
      * 同步执行 ffmpeg，非 0 退出码抛异常（带日志尾部，便于写进 transcode_error）。
      */
     public static void run(List<String> command, File workDir, int timeoutMinutes) throws IOException, InterruptedException {
+        runFor(command, workDir, TimeUnit.MINUTES.toMillis(timeoutMinutes));
+    }
+
+    /** 秒级超时版本，用于图片转换这类短任务。 */
+    public static void runSeconds(List<String> command, File workDir, int timeoutSeconds) throws IOException, InterruptedException {
+        runFor(command, workDir, TimeUnit.SECONDS.toMillis(timeoutSeconds));
+    }
+
+    private static void runFor(List<String> command, File workDir, long timeoutMillis) throws IOException, InterruptedException {
         ProcessBuilder builder = new ProcessBuilder(command)
                 .directory(workDir)
                 .redirectErrorStream(true);
@@ -35,9 +44,9 @@ public final class FfmpegRunner {
         Thread reader = new Thread(() -> drain(process, output), "ffmpeg-output");
         reader.setDaemon(true);
         reader.start();
-        if (!process.waitFor(timeoutMinutes, TimeUnit.MINUTES)) {
+        if (!process.waitFor(timeoutMillis, TimeUnit.MILLISECONDS)) {
             process.destroyForcibly();
-            throw new IllegalStateException("ffmpeg 执行超时（" + timeoutMinutes + " 分钟）");
+            throw new IllegalStateException("ffmpeg 执行超时（" + timeoutMillis + " 毫秒）");
         }
         reader.join(1000);
         int code = process.exitValue();

@@ -77,3 +77,10 @@ export interface AdminCleanupResult {
   failed: number
   failedKeys: string[]
 }
+
+export interface AdminBackfillResult {
+  scanned: number
+  updated: number
+  skipped: number
+  failed: number
+}

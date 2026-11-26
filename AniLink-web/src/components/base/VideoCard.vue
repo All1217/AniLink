@@ -1,7 +1,16 @@
 <template>
   <article class="video-card" @click="goDetail">
     <div class="video-card__cover">
-      <img :src="cover" :alt="video.title" loading="lazy" @error="onImgError" />
+      <img
+        :src="cover"
+        :srcset="srcset"
+        sizes="(max-width: 1240px) 25vw, 240px"
+        :alt="video.title"
+        :loading="priority ? 'eager' : 'lazy'"
+        :fetchpriority="priority ? 'high' : 'auto'"
+        decoding="async"
+        @error="onImgError"
+      />
       <span class="video-card__duration">{{ formatDuration(video.duration) }}</span>
       <span class="video-card__play">
         <el-icon><VideoPlay /></el-icon>
@@ -32,19 +41,16 @@ import { useRouter } from 'vue-router'
 import { ChatDotSquare, VideoPlay } from '@element-plus/icons-vue'
 import type { VideoVo } from '@/types'
 import { formatCount, formatDuration } from '@/utils/format'
+import { COVER_PLACEHOLDER, coverSrcset, coverThumb } from '@/utils/media'
 
-const props = defineProps<{ video: VideoVo }>()
+const props = defineProps<{ video: VideoVo; priority?: boolean }>()
 const router = useRouter()
 const broken = ref(false)
 
-/** 封面兜底：后端返回空/坏图时显示渐变占位，避免整行裂图 */
-const cover = computed(() => (broken.value || !props.video.coverUrl ? PLACEHOLDER : props.video.coverUrl))
-
-const PLACEHOLDER =
-  'data:image/svg+xml;charset=utf-8,' +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e3e5e7"/><stop offset="1" stop-color="#f1f2f3"/></linearGradient></defs><rect width="320" height="200" fill="url(#g)"/><text x="160" y="105" font-size="14" fill="#9499a0" text-anchor="middle">暂无封面</text></svg>',
-  )
+/** 列表优先取 480 缩略图，坏图或旧数据回退占位/原图 */
+const cover = computed(() => (broken.value ? COVER_PLACEHOLDER : coverThumb(props.video)))
+/** 480/960 两档，浏览器按显示宽度挑 */
+const srcset = computed(() => (broken.value ? undefined : coverSrcset(props.video)))
 
 function onImgError() {
   broken.value = true

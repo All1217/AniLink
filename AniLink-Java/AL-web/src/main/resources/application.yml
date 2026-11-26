@@ -57,4 +57,12 @@ al:
     # 启动时把 transcode_status=0 的存量稿件补跑（单线程串行，不影响启动）
     recover-on-start: ${AL_TRANSCODE_RECOVER:true}
     timeout-minutes: ${AL_TRANSCODE_TIMEOUT:60}
+  # 图片派生：上传时生成 480w/960w 封面与 192 方图头像，读列表时用缩略图
+  image:
+    enabled: ${AL_IMAGE_ENABLED:true}
+    cover-quality: ${AL_IMAGE_COVER_QUALITY:78}
+    avatar-size: ${AL_IMAGE_AVATAR_SIZE:192}
+    max-cover-bytes: ${AL_IMAGE_MAX_COVER:5242880}
+    max-avatar-bytes: ${AL_IMAGE_MAX_AVATAR:2097152}
+    timeout-seconds: ${AL_IMAGE_TIMEOUT:30}
 

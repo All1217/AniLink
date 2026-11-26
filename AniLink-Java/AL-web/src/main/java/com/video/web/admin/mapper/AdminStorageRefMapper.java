@@ -9,11 +9,13 @@ import java.util.List;
 /** 存储对象删除前的业务引用查询。 */
 public interface AdminStorageRefMapper {
 
-    /** 按完整 URL 查视频引用（video_url / cover_url / hls_url）。 */
+    /** 按完整 URL 查视频引用（video_url / cover_url / cover_thumb_url / hls_url）。 */
     @Select("select vid as id, title as name, 'video' as type, " +
             "case when video_url = #{url} then 'video_url' " +
-            "when cover_url = #{url} then 'cover_url' else 'hls_url' end as field " +
-            "from video where video_url = #{url} or cover_url = #{url} or hls_url = #{url} limit 20")
+            "when cover_url = #{url} then 'cover_url' " +
+            "when cover_thumb_url = #{url} then 'cover_thumb_url' else 'hls_url' end as field " +
+            "from video where video_url = #{url} or cover_url = #{url} " +
+            "or cover_thumb_url = #{url} or hls_url = #{url} limit 20")
     List<AdminRefVo> findVideoRefs(@Param("url") String url);
 
     /** 按完整 URL 查用户头像/背景引用。 */

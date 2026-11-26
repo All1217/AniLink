@@ -3,7 +3,7 @@
     <h2 class="related__title">相关推荐</h2>
     <RouterLink v-for="item in list" :key="item.vid" class="related__item" :to="`/video/${item.vid}`">
       <div class="related__cover">
-        <img :src="item.coverUrl || PLACEHOLDER" :alt="item.title" loading="lazy" />
+        <img :src="coverThumb(item)" :alt="item.title" loading="lazy" decoding="async" @error="onImgError" />
         <span class="related__duration">{{ formatDuration(item.duration) }}</span>
       </div>
       <div class="related__info">
@@ -24,17 +24,19 @@ import { fetchRecommendVideos } from '@/api/video'
 import { fetchVideoPage } from '@/api/video'
 import type { VideoVo } from '@/types'
 import { formatCount, formatDuration } from '@/utils/format'
+import { COVER_PLACEHOLDER, coverThumb } from '@/utils/media'
 
 const props = defineProps<{ vid: number }>()
 const userStore = useUserStore()
 const list = ref<VideoVo[]>([])
 const loading = ref(false)
 
-const PLACEHOLDER =
-  'data:image/svg+xml;charset=utf-8,' +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="100"><rect width="160" height="100" fill="#e3e5e7"/></svg>',
-  )
+/** 坏图直接换成占位图，避免右侧列表裂图 */
+function onImgError(event: Event) {
+  const img = event.target as HTMLImageElement
+  img.removeAttribute('srcset')
+  img.src = COVER_PLACEHOLDER
+}
 
 /** 登录用户走实时推荐（按画像），未登录退回分页列表，保证右侧不空 */
 async function load() {

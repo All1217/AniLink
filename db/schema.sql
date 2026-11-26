@@ -269,6 +269,7 @@ CREATE TABLE IF NOT EXISTS `video` (
   `tags` varchar(500) DEFAULT NULL COMMENT '标签，不同标签之间用空格分隔',
   `descr` varchar(2000) DEFAULT NULL COMMENT '简介',
   `cover_url` varchar(500) NOT NULL COMMENT '封面url',
+  `cover_thumb_url` varchar(500) DEFAULT NULL COMMENT '封面缩略图url（480w WebP），为空时回退 cover_url',
   `video_url` varchar(500) NOT NULL COMMENT '视频url',
   `hls_url` varchar(500) DEFAULT NULL COMMENT 'HLS 播放列表地址，空表示暂用 MP4',
   `transcode_status` tinyint NOT NULL DEFAULT '0' COMMENT '转码状态 0待转码 1转码中 2已完成 3失败',
