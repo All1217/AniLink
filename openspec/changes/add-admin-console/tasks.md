@@ -1,4 +1,4 @@
-﻿# Tasks
+# Tasks
 
 ## 1. 后端 admin 基座与鉴权
 
@@ -28,6 +28,7 @@
 - [x] 4.3 新增 `DELETE /main/admin/storage/objects`，命中引用返回 409 + 引用列表，未引用才调用 `removeObject`；验证：测试断言引用时 MinIO 删除未被调用
 - [x] 4.4 MinIO 删除失败返回错误、不报告成功，并记录操作日志；验证：mock 删除抛错时接口返回 500
 - [x] 4.5 新增 `AdminStorageTest`（MockMvc + mock service）；验证：测试通过
+- [x] 4.6 新增 `POST /main/admin/storage/cleanup`：按当前 bucket+prefix 分页扫描全部对象，跳过被引用对象，只删除无引用对象，返回 scanned/deleted/skipped/failed；验证：`AdminStorageTest.cleanupDeletesOnlyUnreferencedObjects` 通过
 
 ## 5. 独立管理前端 AniLink-admin
 
@@ -35,7 +36,7 @@
 - [x] 5.2 实现登录页与路由守卫：复用 `/main/login`，登录后调 `/main/admin/me`，role=0 提示无权限并清 token；验证：typecheck/build 通过
 - [x] 5.3 实现视频稿件页：筛选、分页、详情、通过/驳回/下架/可见性操作；验证：build 通过，手工对照接口
 - [x] 5.4 实现用户管理页：筛选、分页、封禁/解封、角色调整（仅超管可见）；验证：build 通过，普通管理员看不到角色操作
-- [x] 5.5 实现对象存储页：桶切换、前缀、对象表、预览、删除二次确认、409 引用列表展示；验证：build 通过，409 时不发送删除
+- [x] 5.5 实现对象存储页：桶切换、前缀、对象表、预览、删除二次确认、409 引用列表展示，以及“一键清除冗余存储”确认/loading/禁用其他操作；验证：build 通过，清理期间表格 loading
 - [x] 5.6 新增 `AniLink-admin/README.md`，说明端口、代理、登录角色与启动命令；验证：按 README 启动成功
 
 ## 6. 集成验证与文档

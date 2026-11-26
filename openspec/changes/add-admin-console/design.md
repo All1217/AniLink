@@ -80,15 +80,19 @@
     - 若 key 位于 `video` 桶的 `hls/{vid}/` 下，检查是否存在 `vid` 且 `hls_url` 非空的稿件（HLS 目录整体视为被引用）。
   - 有任何引用：返回 409 + 引用列表（类型、vid/uid、标题/昵称、字段），不调用 MinIO 删除。
   - 无引用：调用 `removeObject`；失败返回 500，不报告成功。
-- 只允许单对象删除；不做批量删除、桶创建/删除、对象覆盖上传。
+- 一键清理：`POST /main/admin/storage/cleanup?bucket&prefix`。
+  - 按当前 bucket + prefix 递归分页扫描全部对象，复用同一套引用检查；只删除无引用对象，被引用对象跳过。
+  - 单个对象删除失败不中断整体，计入 `failed`/`failedKeys`；返回 `scanned/deleted/skipped/failed`。
+  - HLS 按 vid 缓存引用结果，避免同一目录每个分片重复查稿件。
+- 单对象删除只针对指定 key；一键清理只按引用检查删除无引用对象；不做桶创建/删除、对象覆盖上传，也不提供绕过引用检查的强制删除。
 - 检查与删除之间存在竞态（检查后新稿件引用该对象）；管理员低频操作可接受，文档标注。
 
 ### D6 管理前端
 
 - 新建独立 `AniLink-admin/`（Vite 6 + Vue 3.5 + Element Plus + Pinia；端口 5174；`/api` 代理到网关 8090）。
-- 页面：登录、视频稿件（筛选/分页/详情/通过/驳回/下架/可见性）、用户（筛选/分页/封禁/解封/角色）、对象存储（桶切换/前缀/对象表/预览/删除确认）。
+- 页面：登录、视频稿件（筛选/分页/详情/通过/驳回/下架/可见性）、用户（筛选/分页/封禁/解封/角色）、对象存储（桶切换/前缀/对象表/预览/删除确认/一键清理）。
 - 复用登录/刷新协议：access token 放请求头，refresh token 走 HttpOnly Cookie；管理端只存 access token，不存 refresh token。
-- 删除对象必须二次确认，并在 409 时展示引用方，不提供“强制删除”。
+- 删除对象必须二次确认，并在 409 时展示引用方，不提供“强制删除”；一键清理必须二次确认，执行期间表格 loading 且禁止其他操作。
 - 不做用户端页面改动；`AniLink-web` 保持原样。
 
 ### D7 API 一览
@@ -106,6 +110,7 @@
 | GET | `/main/admin/storage/objects` | 对象列表 |
 | GET | `/main/admin/storage/objects/presign` | 预览 URL |
 | DELETE | `/main/admin/storage/objects` | 删除对象（引用检查） |
+| POST | `/main/admin/storage/cleanup` | 一键清理当前桶/前缀下无引用对象 |
 
 ### D8 测试
 
