@@ -20,6 +20,7 @@
 - [x] 3.2 新增 `PUT /main/admin/users/{uid}/status`，允许 0/1，拒绝封禁自己；验证：测试覆盖正常封禁、解封、自我封禁拒绝
 - [x] 3.3 新增 `PUT /main/admin/users/{uid}/role`，只允许 role=2 调用，值只能是 0/1/2，拒绝修改自己；验证：测试覆盖 role=1 拒绝、role=2 成功、自我修改拒绝
 - [x] 3.4 新增 `AdminUserTest` 并覆盖关键字/状态/角色筛选；验证：测试通过
+- [x] 3.5 新增 `POST /main/admin/users/{uid}/password/reset`：生成 12 位临时密码、bcrypt 入库、仅返回一次、吊销目标 refresh 会话；role=1 只能重置普通用户，role=2 可重置管理员，拒绝重置自己；验证：`AdminUserTest` 覆盖成功、权限拒绝与重置自己
 
 ## 4. 对象存储管理
 
@@ -35,7 +36,7 @@
 - [x] 5.1 新建 `AniLink-admin/`（Vite 6 + Vue 3.5 + Element Plus + Pinia），端口 5174，`/api` 代理到 8090；验证：`pnpm --dir AniLink-admin build` 通过
 - [x] 5.2 实现登录页与路由守卫：复用 `/main/login`，登录后调 `/main/admin/me`，role=0 提示无权限并清 token；验证：typecheck/build 通过
 - [x] 5.3 实现视频稿件页：筛选、分页、详情、通过/驳回/下架/可见性操作；验证：build 通过，手工对照接口
-- [x] 5.4 实现用户管理页：筛选、分页、封禁/解封、角色调整（仅超管可见）；验证：build 通过，普通管理员看不到角色操作
+- [x] 5.4 实现用户管理页：筛选、分页、封禁/解封、角色调整（仅超管可见）、密码列 `******` + 眼睛重置/一次性临时密码弹窗；验证：build 通过，普通管理员看不到角色操作，眼睛不展示原密码
 - [x] 5.5 实现对象存储页：桶切换、前缀、对象表、预览、删除二次确认、409 引用列表展示，以及“一键清除冗余存储”确认/loading/禁用其他操作；验证：build 通过，清理期间表格 loading
 - [x] 5.6 新增 `AniLink-admin/README.md`，说明端口、代理、登录角色与启动命令；验证：按 README 启动成功
 

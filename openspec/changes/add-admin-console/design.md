@@ -66,7 +66,8 @@
 - 列表：`GET /main/admin/users?current&size&keyword&status&role`，按 uid/username/nickname 模糊搜索；响应 DTO 不含 password。
 - 封禁/解封：`PUT /main/admin/users/{uid}/status`，只允许 0/1；拒绝操作自己。
 - 角色：`PUT /main/admin/users/{uid}/role`，只允许 0/1/2，仅 role=2 可调用，拒绝修改自己。
-- 不做物理删除、不重置密码、不展示 `password`/`delete_date` 以外的敏感字段。
+- 密码：不展示原密码或哈希；`POST /main/admin/users/{uid}/password/reset` 生成 12 位临时密码，bcrypt 入库，临时密码仅返回一次，并吊销目标 refresh 会话。role=1 只能重置 role=0；role=2 可重置 role=0/1；拒绝重置自己。
+- 不做物理删除、不展示 `password`/令牌；密码重置写 `password_updated_at`，日志不记录临时密码。
 
 ### D5 对象存储管理
 
@@ -90,9 +91,10 @@
 ### D6 管理前端
 
 - 新建独立 `AniLink-admin/`（Vite 6 + Vue 3.5 + Element Plus + Pinia；端口 5174；`/api` 代理到网关 8090）。
-- 页面：登录、视频稿件（筛选/分页/详情/通过/驳回/下架/可见性）、用户（筛选/分页/封禁/解封/角色）、对象存储（桶切换/前缀/对象表/预览/删除确认/一键清理）。
+- 页面：登录、视频稿件（筛选/分页/详情/通过/驳回/下架/可见性）、用户（筛选/分页/封禁/解封/角色/密码重置）、对象存储（桶切换/前缀/对象表/预览/删除确认/一键清理）。
 - 复用登录/刷新协议：access token 放请求头，refresh token 走 HttpOnly Cookie；管理端只存 access token，不存 refresh token。
 - 删除对象必须二次确认，并在 409 时展示引用方，不提供“强制删除”；一键清理必须二次确认，执行期间表格 loading 且禁止其他操作。
+- 密码列常态显示 `******` + 眼睛图标；点击进入重置确认，成功后弹窗展示一次性临时密码，关闭即清空，不提供“查看原密码”。
 - 不做用户端页面改动；`AniLink-web` 保持原样。
 
 ### D7 API 一览
@@ -107,6 +109,7 @@
 | GET | `/main/admin/users` | 用户分页/筛选 |
 | PUT | `/main/admin/users/{uid}/status` | 封禁/解封 |
 | PUT | `/main/admin/users/{uid}/role` | 角色调整（仅超管） |
+| POST | `/main/admin/users/{uid}/password/reset` | 重置密码，返回一次性临时密码 |
 | GET | `/main/admin/storage/objects` | 对象列表 |
 | GET | `/main/admin/storage/objects/presign` | 预览 URL |
 | DELETE | `/main/admin/storage/objects` | 删除对象（引用检查） |
