@@ -1,0 +1,37 @@
+server:
+  port: 8025
+  address: 0.0.0.0
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/video?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=GMT%2b8
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+logging:
+  level:
+    com.video.user.mapper: debug
+
+al:
+  auth:
+    # 网关不转发 /internal/**，这里放行给服务间 Feign 调用
+    resource:
+      exclude-login-paths:
+        - /internal/**
+    jwt:
+      secret: ${AUTH_JWT_SECRET:}
+      access-ttl: ${AUTH_ACCESS_TTL:1800}
+      refresh-ttl: ${AUTH_REFRESH_TTL:604800}
+      prev-grace: ${AUTH_PREV_GRACE:5}
+      max-sessions: ${AUTH_MAX_SESSIONS:3}
+      secure-cookie: ${AUTH_SECURE_COOKIE:false}
+      legacy-compat: ${AUTH_LEGACY_COMPAT:true}
+    # 登录失败限流（账号/IP 双维度）
+    login:
+      max-fail-per-user: ${AL_LOGIN_MAX_FAIL_USER:5}
+      max-fail-per-ip: ${AL_LOGIN_MAX_FAIL_IP:20}
+      window-seconds: ${AL_LOGIN_WINDOW:900}
+  user:
+    # Phase 1 过渡：统计聚合与默认收藏夹仍由 AL-web 承担
+    legacy-support-url: ${AL_USER_LEGACY_URL:http://localhost:8022}

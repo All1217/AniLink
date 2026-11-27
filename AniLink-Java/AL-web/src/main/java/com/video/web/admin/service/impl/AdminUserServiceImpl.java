@@ -11,8 +11,9 @@ import com.video.web.admin.service.AdminUserService;
 import com.video.web.admin.vo.AdminResetPasswordVo;
 import com.video.web.admin.vo.AdminUserQueryVo;
 import com.video.web.admin.vo.AdminUserVo;
-import com.video.web.main.service.LoginService;
-import com.video.web.main.service.UserInfoService;
+import com.video.api.user.UserInternalClient;
+import com.video.api.user.dto.UserProfileVo;
+import org.springframework.beans.factory.ObjectProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -30,14 +31,22 @@ public class AdminUserServiceImpl implements AdminUserService {
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final AdminUserMapper adminUserMapper;
-    private final UserInfoService userInfoService;
-    private final LoginService loginService;
+    private final ObjectProvider<UserInternalClient> clientProvider;
 
-    public AdminUserServiceImpl(AdminUserMapper adminUserMapper, UserInfoService userInfoService,
-                                LoginService loginService) {
+    public AdminUserServiceImpl(AdminUserMapper adminUserMapper,
+                                ObjectProvider<UserInternalClient> clientProvider) {
         this.adminUserMapper = adminUserMapper;
-        this.userInfoService = userInfoService;
-        this.loginService = loginService;
+        this.clientProvider = clientProvider;
+    }
+
+    /** 用户资料已归 al-user，经内部接口读取；失败按无权限处理 */
+    private UserProfileVo profileOf(Long uid) {
+        try {
+            return clientProvider.getObject().profile(uid);
+        } catch (Exception e) {
+            log.error("读取用户资料失败：uid={}", uid, e);
+            return null;
+        }
     }
 
     @Override
@@ -80,7 +89,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (operatorUid.equals(uid)) {
             throw new VideoException(ResultCodeEnum.ADMIN_ACCESS_FORBIDDEN.getCode(), "不能修改自己的角色");
         }
-        UserInfo operator = userInfoService.getById(operatorUid);
+        UserProfileVo operator = profileOf(operatorUid);
         if (operator == null || operator.getRole() == null || operator.getRole() != 2) {
             throw new VideoException(ResultCodeEnum.ADMIN_ACCESS_FORBIDDEN);
         }
@@ -97,7 +106,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (operatorUid.equals(uid)) {
             throw new VideoException(ResultCodeEnum.ADMIN_ACCESS_FORBIDDEN.getCode(), "不能重置自己的密码");
         }
-        UserInfo operator = userInfoService.getById(operatorUid);
+        UserProfileVo operator = profileOf(operatorUid);
         if (operator == null || operator.getRole() == null || operator.getRole() < 1) {
             throw new VideoException(ResultCodeEnum.ADMIN_ACCESS_FORBIDDEN);
         }
@@ -114,7 +123,7 @@ public class AdminUserServiceImpl implements AdminUserService {
             throw new VideoException(ResultCodeEnum.APP_SERVER_ERROR.getCode(), "重置密码失败");
         }
         try {
-            loginService.revokeAllSessions(uid);
+            clientProvider.getObject().revokeSessions(uid);
         } catch (Exception e) {
             // 密码已经更新成功，会话吊销失败只记录，避免临时密码无法返回
             log.warn("重置密码后吊销用户 {} 会话失败", uid, e);

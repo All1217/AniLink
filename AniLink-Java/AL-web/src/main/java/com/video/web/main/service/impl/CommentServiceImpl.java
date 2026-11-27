@@ -7,12 +7,16 @@ import com.video.common.login.LoginUserHolder;
 import com.video.model.entity.Comment;
 import com.video.web.main.mapper.CommentMapper;
 import com.video.web.main.service.CommentService;
+import com.video.web.main.service.UserBriefService;
 import com.video.web.main.vo.CommentQueryVo;
 import com.video.web.main.vo.CommentVo;
+import com.video.api.user.dto.UserBriefVo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Slf4j
@@ -23,6 +27,8 @@ public class CommentServiceImpl implements CommentService {
 
     @Autowired
     private CommentMapper commentMapper;
+    @Autowired
+    private UserBriefService userBriefService;
 
     @Override
     public IPage<CommentVo> pageRootItem(IPage<CommentVo> page, CommentQueryVo queryVo) {
@@ -31,7 +37,23 @@ public class CommentServiceImpl implements CommentService {
             log.warn("非法的评论排序字段：{}，已回退为 create_time", queryVo.getSortField());
             queryVo.setSortField("create_time");
         }
-        return commentMapper.pageRootItem(page, queryVo);
+        IPage<CommentVo> result = commentMapper.pageRootItem(page, queryVo);
+        enrichAuthors(result.getRecords());
+        return result;
+    }
+
+    /** 评论作者昵称/头像改由 al-user 批量补全，避免跨域 JOIN user */
+    private void enrichAuthors(List<CommentVo> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        Map<Long, UserBriefVo> users = userBriefService.byUids(
+                records.stream().map(CommentVo::getUid).toList());
+        records.forEach(comment -> {
+            UserBriefVo user = users.get(comment.getUid());
+            comment.setNickname(user == null ? null : user.getNickname());
+            comment.setAvatar(user == null ? null : user.getAvatar());
+        });
     }
 
     @Override
@@ -42,7 +64,9 @@ public class CommentServiceImpl implements CommentService {
 
     @Override
     public IPage<CommentVo> pageReplyItem(IPage<CommentVo> page, CommentQueryVo queryVo) {
-        return commentMapper.pageReplyItem(page, queryVo);
+        IPage<CommentVo> result = commentMapper.pageReplyItem(page, queryVo);
+        enrichAuthors(result.getRecords());
+        return result;
     }
 
     @Override

@@ -8,8 +8,7 @@
     </select>
     <select id="getVideoFavoritePage" resultType="com.video.web.main.vo.VideoFavoriteVo">
         SELECT fv.time,
-               u.uid,
-               u.nickname,
+               v.uid,
                v.title,
                v.duration,
                v.cover_url AS coverUrl,
@@ -24,7 +23,6 @@
         FROM favorite_video fv
                  LEFT JOIN video v ON fv.vid = v.vid
                  LEFT JOIN video_stats vs ON v.vid = vs.vid
-                 LEFT JOIN user u ON v.uid = u.uid
         WHERE fv.fid = #{fid} AND fv.is_remove = 0
         <if test="sortField != null and sortField != ''">
             order by ${sortField} desc

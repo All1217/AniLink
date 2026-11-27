@@ -2,7 +2,7 @@
 
 AniLink 是一个仿 B 站（bilibili）的视频社区全栈项目。本目录是后端 Maven 多模块工程，基于 Spring Boot 3.0.5 + Spring Cloud Alibaba，包根 `com.video`。
 
-当前处于微服务拆分 **Phase 0 之后**：公共模块与网关基座已完成，`AL-web` 仍承载全部业务域；`al-user`、`al-video`、`al-playback`、`al-social`、`al-comment`、`al-danmaku`、`al-datacenter` 在 Phase 1–4 按需创建。完整的拆分设计见 [OpenSpec 变更](../openspec/changes/refactor-backend-service-split/) 与 [设计文档](../docs/superpowers/specs/2026-11-24-backend-service-split-design.md)。
+当前处于微服务拆分 **Phase 1 进行中**：`AL-user`（8025）已落地并注册为 `userservice`，其余业务域仍由 `AL-web` 承载；`al-video`、`al-playback`、`al-social`、`al-comment`、`al-danmaku`、`al-datacenter` 在 Phase 2–4 按需创建。完整的拆分设计见 [OpenSpec 变更](../openspec/changes/refactor-backend-service-split/) 与 [设计文档](../docs/superpowers/specs/2026-11-24-backend-service-split-design.md)。
 
 ## 1. 当前架构
 
@@ -25,20 +25,20 @@ MySQL / Redis / RabbitMQ / MinIO / Nacos 由各服务共享
 
 ## 2. 模块与端口
 
-### 2.1 当前可启动的服务（4 个）
+### 2.1 当前可启动的服务（5 个）
 
 | 模块 | 端口 | 作用 | 启动类 |
 | --- | --- | --- | --- |
 | `AL-gateway` | 8090 | 网关、鉴权、路由 | `com.video.gateway.GatewayApplication` |
 | `AL-communication` | 8023 / WS 8024 | 聊天与私信 WebSocket | `com.video.communication.CommunicationApplication` |
 | `AL-remark` | 8021 | 点赞 | `com.video.remark.RemarkApplication` |
+| `AL-user` | 8025 | 登录/注册/刷新/登出/改密、用户资料与统计 | `com.video.UserApplication` |
 | `AL-web` | 8022 | 视频/用户/评论/弹幕/粉丝/收藏/历史/数据中心（迁移期兜底） | `com.video.VideoWebApplication` |
 
-### 2.2 规划中的服务（Phase 1–4 创建）
+### 2.2 规划中的服务（Phase 2–4 创建）
 
 | 服务 | 端口 | 作用 | 计划 |
 | --- | --- | --- | --- |
-| `AL-user` | 8025 | 账号、资料、统计、标签 | Phase 1 |
 | `AL-video` | 8026 | 视频、投稿、转码、统计、投币 | Phase 2 |
 | `AL-playback` | 8027 | 历史、播放进度 | Phase 2 |
 | `AL-comment` | 8028 | 评论与回复 | Phase 3 |
@@ -46,7 +46,7 @@ MySQL / Redis / RabbitMQ / MinIO / Nacos 由各服务共享
 | `AL-social` | 8031 | 关注/粉丝、收藏夹 | Phase 3 |
 | `AL-datacenter` | 8032 | 统计、推荐、标签聚合 BFF | Phase 4 |
 
-> 这些模块目前**不存在**，不会出现在 Maven reactor 或 IDE 模块列表中；对应 Phase 开始时再创建，避免空脚手架。
+> 除已经落地的 `AL-user` 外，其余模块目前**不存在**，不会出现在 Maven reactor 或 IDE 模块列表中；对应 Phase 开始时再创建，避免空脚手架。
 
 ### 2.3 公共模块与测试模块
 
@@ -171,8 +171,9 @@ mvn -q -DskipTests install
 
 1. `AL-gateway`（8090）
 2. `AL-communication`（8023 / WS 8024）
-3. `AL-remark`（8021）
-4. `AL-web`（8022）
+3. AL-remark（8021）
+4. AL-user（8025）
+5. `AL-web`（8022）
 
 用 Maven 启动示例：
 

@@ -21,11 +21,9 @@
         coalesce(v.cover_thumb_url, v.cover_url) AS cover_thumb_url,
         v.duration AS video_duration,
         h.id, h.view_time, h.duration, h.is_finish, h.device, h.ip, h.is_delete,
-        u.nickname,
-        u.uid as author_uid
+        v.uid as author_uid
         FROM bh_video h
         JOIN video v ON h.vid = v.vid
-        JOIN user u ON v.uid = u.uid
         WHERE h.uid = #{queryVo.uid} AND h.is_delete = 0
         <if test="queryVo.startDuration != null">
             AND v.duration &gt;= #{queryVo.startDuration}

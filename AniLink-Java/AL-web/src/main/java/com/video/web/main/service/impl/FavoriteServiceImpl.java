@@ -3,12 +3,14 @@ package com.video.web.main.service.impl;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.video.common.constant.Constant;
+import com.video.api.user.dto.UserBriefVo;
 import com.video.model.entity.Favorite;
 import com.video.model.entity.FavoriteVideo;
 import com.video.model.entity.UserVideo;
 import com.video.web.main.mapper.FavoriteMapper;
 import com.video.web.main.mapper.VideoMapper;
 import com.video.web.main.service.FavoriteService;
+import com.video.web.main.service.UserBriefService;
 import com.video.web.main.vo.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -27,6 +29,8 @@ public class FavoriteServiceImpl implements FavoriteService {
     private RedisTemplate<String, Object> redisTemplate;
     @Autowired
     private VideoMapper videoMapper;
+    @Autowired
+    private UserBriefService userBriefService;
 
     @Override
     public void insertOne(Favorite favorite) {
@@ -70,7 +74,22 @@ public class FavoriteServiceImpl implements FavoriteService {
 
     @Override
     public IPage<VideoFavoriteVo> getVideoFavoritePage(IPage<Favorite> page, long fid, String sortField) {
-        return favoriteMapper.getVideoFavoritePage(page, fid, sortField);
+        IPage<VideoFavoriteVo> result = favoriteMapper.getVideoFavoritePage(page, fid, sortField);
+        enrichNicknames(result.getRecords());
+        return result;
+    }
+
+    /** 作者昵称改由 al-user 批量补全，避免跨域 JOIN user */
+    private void enrichNicknames(List<VideoFavoriteVo> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        java.util.Map<Long, UserBriefVo> users = userBriefService.byUids(
+                records.stream().map(VideoFavoriteVo::getUid).toList());
+        records.forEach(video -> {
+            UserBriefVo user = users.get(video.getUid());
+            video.setNickname(user == null ? null : user.getNickname());
+        });
     }
 
     @Override

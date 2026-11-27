@@ -38,7 +38,7 @@
 | 服务 | Nacos 名 | 端口 | 职责 | 拥有的表 |
 | --- | --- | --- | --- | --- |
 | al-gateway | gatewayservice | 8090 | 路由、access token 校验、身份透传 | — |
-| al-user | userservice | 8025 | 登录/注册/刷新/登出/改密、用户资料、用户统计、标签 | `user`、`user_stats`、`user_tag` |
+| al-user | userservice | 8025 | 登录/注册/刷新/登出/改密、用户资料、用户统计 | `user`、`user_stats`（`user_tag` Phase 1–3 暂留 AL-web，Phase 4 随 datacenter 迁移） |
 | al-video | videoservice | 8026 | 视频元数据、投稿上传、HLS 转码、视频统计、投币 | `video`、`video_stats`、`user_video` |
 | al-playback | playbackservice | 8027 | 观看历史、播放进度 | `bh_video` |
 | al-social | socialservice | 8031 | 关注/粉丝、收藏夹 | `follow`、`favorite`、`favorite_video` |
@@ -105,6 +105,7 @@
 - `AL-common` 拆为 `AL-common-core`（Result、错误码、常量、登录用户上下文、JWT/Json 工具）、`AL-common-web`（全局异常、Web/Cookie 工具、Knife4j 配置）、`AL-common-mq`（RabbitMQ 配置与 Helper）、`AL-common-redis`（Redis 配置）、`AL-common-mybatis`（MyBatis-Plus 配置）。各服务按需引入，不再被 MinIO/Netty/WebSocket 等重依赖污染。
 - `AL-auth-resource-sdk` 只依赖 core/web，保持自动配置不变。
 - 每个需要被调用的服务提供 `-api` 契约模块：`AL-user-api`、`AL-video-api`、`AL-playback-api`、`AL-social-api`，内含 Feign 客户端与 DTO；实体下沉到属主服务的 `model` 包。契约模块随对应服务在 Phase 1–4 创建，Phase 0 只建公共模块，避免空脚手架。
+- 命名约定：契约模块固定为 `AL-<service>-api`，Java 包名 `com.video.api.<service>`（如 `com.video.api.user`）；实现模块包名 `com.video.<service>`，两者不得混用。
 - `AL-api` 最终只保留跨服务共享的少量 DTO（如 `LikedTimesDTO`），迁移完成后删除；`AL-remark`/`AL-communication` 同步改用新契约。
 - 备选：保留单一 `AL-common`，只按包拆分。改动小，但依赖仍然全量传递，无法体现“复用性与扩展性”，否决。
 

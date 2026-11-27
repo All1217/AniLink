@@ -6,16 +6,24 @@ import com.video.model.entity.Chat;
 import com.video.model.entity.ChatMessage;
 import com.video.web.main.mapper.ChatMapper;
 import com.video.web.main.service.ChatService;
+import com.video.web.main.service.UserBriefService;
 import com.video.web.main.vo.ChatQueryVo;
 import com.video.web.main.vo.ChatVo;
+import com.video.api.user.dto.UserBriefVo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class ChatServiceImpl implements ChatService {
     @Autowired
     private ChatMapper chatMapper;
+    @Autowired
+    private UserBriefService userBriefService;
 
     @Override
     public Chat getById(Long i) {
@@ -25,7 +33,30 @@ public class ChatServiceImpl implements ChatService {
     @Override
     @Transactional
     public IPage<ChatVo> getChatVoPage(IPage<ChatVo> page, Long uid) {
-        return chatMapper.getChatVoPage(page, uid);
+        IPage<ChatVo> result = chatMapper.getChatVoPage(page, uid);
+        enrich(result.getRecords());
+        return result;
+    }
+
+    /** 双方昵称/头像改由 al-user 批量补全，避免跨域 JOIN user */
+    private void enrich(List<ChatVo> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        List<Long> uids = new ArrayList<>();
+        records.forEach(chat -> {
+            uids.add(chat.getSenderId());
+            uids.add(chat.getTargetId());
+        });
+        Map<Long, UserBriefVo> users = userBriefService.byUids(uids);
+        records.forEach(chat -> {
+            UserBriefVo sender = users.get(chat.getSenderId());
+            UserBriefVo target = users.get(chat.getTargetId());
+            chat.setSenderName(sender == null ? null : sender.getNickname());
+            chat.setSenderAvatar(sender == null ? null : sender.getAvatar());
+            chat.setTargetName(target == null ? null : target.getNickname());
+            chat.setTargetAvatar(target == null ? null : target.getAvatar());
+        });
     }
 
     @Override
@@ -52,6 +83,9 @@ public class ChatServiceImpl implements ChatService {
         } else {
             res = chatMapper.getChatVoByTwoIds(t.getSenderId(), t.getTargetId());
         }
+        if (res != null) {
+            enrich(java.util.Collections.singletonList(res));
+        }
         return res;
     }
 
@@ -62,7 +96,11 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     public ChatVo getChatVoByST(Long senderId, Long targetId) {
-        return chatMapper.getChatVoByTwoIds(senderId, targetId);
+        ChatVo res = chatMapper.getChatVoByTwoIds(senderId, targetId);
+        if (res != null) {
+            enrich(java.util.Collections.singletonList(res));
+        }
+        return res;
     }
 
     @Override

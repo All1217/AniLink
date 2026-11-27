@@ -8,14 +8,12 @@
         select c.id, c.vid, c.uid, c.root_id, c.parent_id,
                c.to_user_id, c.content, c.love, c.bad,
                c.create_time, c.is_top, c.is_deleted,
-               u.nickname, u.avatar, ifnull(cc.cnt, 0) reply_count
+               ifnull(cc.cnt, 0) reply_count
         from
         (select id, vid, uid, root_id, parent_id,
                 to_user_id, content, love, bad,
                 create_time, is_top, is_deleted
          from comment where is_deleted = 0 and vid = #{queryVo.vid} and root_id = 0) c
-        left join
-        (select uid, nickname, avatar from user) u on c.uid = u.uid
         left join
         (select count(*) cnt, root_id
         from comment where is_deleted = 0 and vid = #{queryVo.vid} and root_id != 0
@@ -33,7 +31,6 @@
         select c.id, c.vid, c.uid, c.root_id, c.parent_id,
                c.to_user_id, c.content, c.love, c.bad,
                c.create_time, c.is_top, c.is_deleted,
-               u.nickname, u.avatar
         from
             (select id, vid, uid, root_id, parent_id,
                     to_user_id, content, love, bad,
@@ -41,8 +38,6 @@
             from comment where is_deleted = 0
                            and vid = #{queryVo.vid}
                            and root_id = #{queryVo.rootId}) c
-                left join
-            (select uid, nickname, avatar from user) u on c.uid = u.uid
             order by c.love desc, c.create_time asc
     </select>
 </mapper>

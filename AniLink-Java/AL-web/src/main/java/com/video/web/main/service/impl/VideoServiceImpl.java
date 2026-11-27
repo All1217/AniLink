@@ -12,6 +12,8 @@ import com.video.web.main.vo.UserVideoQueryVo;
 import com.video.web.main.vo.VideoQueryVo;
 import com.video.web.main.vo.VideoVo;
 import com.video.web.main.util.ImageUrls;
+import com.video.api.user.dto.UserBriefVo;
+import com.video.web.main.service.UserBriefService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -26,6 +28,7 @@ public class VideoServiceImpl implements VideoService {
     private final VideoMapper videoMapper;
     private final VideoStatsMapper videoStatsMapper;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final UserBriefService userBriefService;
 
     @Override
     @Transactional
@@ -49,7 +52,9 @@ public class VideoServiceImpl implements VideoService {
 
     @Override
     public IPage<VideoVo> pageItem(IPage<VideoVo> page, VideoQueryVo queryVo) {
-        return videoMapper.pageItem(page, queryVo);
+        IPage<VideoVo> result = videoMapper.pageItem(page, queryVo);
+        enrichNicknames(result.getRecords());
+        return result;
     }
 
     @Override
@@ -65,7 +70,22 @@ public class VideoServiceImpl implements VideoService {
     @Override
     @Transactional
     public List<VideoVo> getRealTimeRecommend(List<Long> videoIds) {
-        return videoMapper.batchSelect(videoIds);
+        List<VideoVo> result = videoMapper.batchSelect(videoIds);
+        enrichNicknames(result);
+        return result;
+    }
+
+    /** 用户昵称改由 al-user 批量补全，避免跨域 JOIN user */
+    private void enrichNicknames(List<VideoVo> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        Map<Long, UserBriefVo> users = userBriefService.byUids(
+                records.stream().map(VideoVo::getUid).toList());
+        records.forEach(video -> {
+            UserBriefVo user = users.get(video.getUid());
+            video.setNickname(user == null ? null : user.getNickname());
+        });
     }
 
     @Override

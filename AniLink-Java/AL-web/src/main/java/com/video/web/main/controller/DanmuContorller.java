@@ -5,7 +5,7 @@ import com.video.common.result.Result;
 import com.video.model.entity.Danmu;
 import com.video.model.entity.UserInfo;
 import com.video.web.main.service.DanmuService;
-import com.video.web.main.service.UserInfoService;
+import com.video.web.main.service.UserBriefService;
 import com.video.web.main.service.UserTagService;
 import com.video.web.main.vo.RecQueryVo;
 import com.video.web.main.vo.TagRankListVO;
@@ -29,7 +29,7 @@ public class DanmuContorller {
     @Autowired
     private RestTemplate restTemplate;
     @Autowired
-    private UserInfoService userInfoService;
+    private UserBriefService userBriefService;
     @Autowired
     private UserTagService userTagService;
 
@@ -60,7 +60,7 @@ public class DanmuContorller {
         if (uids == null || uids.isEmpty()) {
             return Result.ok(Collections.emptyList());
         }
-        return userInfoService.getSimilarUsers(uids);
+        return Result.ok(userBriefService.similarUsers(uids));
     }
 
     @Operation(summary = "根据指定标签过滤弹幕")

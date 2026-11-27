@@ -11,12 +11,16 @@ import com.video.web.main.service.HistoryService;
 import com.video.web.main.task.VideoRecordDelayTaskHandler;
 import com.video.web.main.vo.HistoryQueryVo;
 import com.video.web.main.vo.HistoryVo;
+import com.video.api.user.dto.UserBriefVo;
+import com.video.web.main.service.UserBriefService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.sql.Timestamp;
+import java.util.List;
+import java.util.Map;
 
 import static com.baomidou.mybatisplus.core.toolkit.Wrappers.lambdaQuery;
 
@@ -25,6 +29,7 @@ import static com.baomidou.mybatisplus.core.toolkit.Wrappers.lambdaQuery;
 public class HistoryServiceImpl extends ServiceImpl<HistoryMapper, BrowseHistory> implements HistoryService {
     private final HistoryMapper historyMapper;
     private final VideoRecordDelayTaskHandler taskHandler;
+    private final UserBriefService userBriefService;
 
     @Override
     public void insertOne(BrowseHistory browseHistory) {
@@ -33,7 +38,22 @@ public class HistoryServiceImpl extends ServiceImpl<HistoryMapper, BrowseHistory
 
     @Override
     public IPage<HistoryVo> getHistoryPage(IPage<HistoryVo> page, HistoryQueryVo queryVo) {
-        return historyMapper.getHistoryPage(page, queryVo);
+        IPage<HistoryVo> result = historyMapper.getHistoryPage(page, queryVo);
+        enrichNicknames(result.getRecords());
+        return result;
+    }
+
+    /** 作者昵称改由 al-user 批量补全，避免跨域 JOIN user */
+    private void enrichNicknames(List<HistoryVo> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        Map<Long, UserBriefVo> users = userBriefService.byUids(
+                records.stream().map(HistoryVo::getAuthorUid).toList());
+        records.forEach(history -> {
+            UserBriefVo user = users.get(history.getAuthorUid());
+            history.setNickname(user == null ? null : user.getNickname());
+        });
     }
 
     @Override

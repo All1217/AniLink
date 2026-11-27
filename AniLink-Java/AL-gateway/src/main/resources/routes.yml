@@ -2,6 +2,12 @@ spring:
   cloud:
     gateway:
       routes:
+        # Phase 1：用户域已迁到 al-user，具体路径优先于 /main/** 的兜底路由
+        - id: user-service
+          uri: lb://userservice
+          order: -1
+          predicates:
+            - Path=/main/login,/main/login/**,/main/info,/main/logout,/main/user/**,/main/public/refresh
         - id: remark-service
           uri: lb://remarkservice
           predicates:

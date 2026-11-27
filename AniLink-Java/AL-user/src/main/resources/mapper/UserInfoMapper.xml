@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.video.user.mapper.UserInfoMapper">
+    <insert id="inserUserStats">
+        insert into user_stats (fans_count, follow_count, like_count, play_count, video_count, collection_count, collect_count, birth_date, school, notice, uid)
+        values (0, 0, 0, 0, 0, 0, 0, null, null, null, #{uid})
+    </insert>
+    <update id="updateUserStats">
+        update user_stats
+        <set>
+            <if test="notice != null">notice = #{notice},</if>
+            <if test="fansCount != null">fans_count = #{fansCount},</if>
+            <if test="followCount != null">follow_count = #{followCount},</if>
+            <if test="likeCount != null">like_count = #{likeCount},</if>
+            <if test="playCount != null">play_count = #{playCount},</if>
+            <if test="videoCount != null">video_count = #{videoCount},</if>
+            <if test="collectionCount != null">collection_count = #{collectionCount},</if>
+            <if test="collectCount != null">collect_count = #{collectCount},</if>
+            <if test="masterpiece != null">masterpiece = #{masterpiece},</if>
+
+            <if test="birthDate != null">birth_date = #{birthDate},</if>
+            <if test="school != null">school = #{school},</if>
+        </set>
+        where uid = #{uid}
+    </update>
+    <update id="updateUserInfo">
+        update user
+        <set>
+            <if test="nickname != null">
+                nickname = #{nickname},
+            </if>
+            <if test="gender != null">
+                gender = #{gender},
+            </if>
+            <if test="description != null">
+                description = #{description},
+            </if>
+            <if test="avatar != null">
+                avatar = #{avatar},
+            </if>
+        </set>
+        where uid = #{uid}
+    </update>
+    <select id="selectOneByUsername" resultType="com.video.model.entity.UserInfo">
+        select uid, username, password,
+               nickname, avatar, background,
+               gender, description, exp, coin,
+               vip, status, role, auth, auth_msg,
+               create_date, delete_date
+        from user
+        where username = #{username}
+    </select>
+    <select id="getUserVoByUid" resultType="com.video.user.vo.UserVo">
+        select u.uid, u.nickname, u.description, u.gender, us.birth_date, us.school
+        from user u
+                 left join user_stats us on u.uid = us.uid
+        where u.uid = #{uid}
+    </select>
+</mapper>

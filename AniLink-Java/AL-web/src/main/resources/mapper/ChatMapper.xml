@@ -8,18 +8,12 @@
                c.target_id    AS targetId,
                c.sender_id    AS senderId,
                c.latest_time  AS latestTime,
-               su.nickname    AS senderName,
-               tu.nickname    AS targetName,
-               su.avatar      AS senderAvatar,
-               tu.avatar      AS targetAvatar,
                cm.content     AS 'chatMessage.content',
                COALESCE(SUM(
                                 IF(cm_all.target_id = #{uid} AND cm_all.read_status = 0
                                        AND (cm_all.sender_id = c.sender_id OR cm_all.sender_id = c.target_id), 1, 0)
                         ), 0) AS unreadCount
         FROM chat c
-                 LEFT JOIN user su ON su.uid = c.sender_id
-                 LEFT JOIN user tu ON tu.uid = c.target_id
                  LEFT JOIN (SELECT cm1.*
                             FROM chat_message cm1
                                      INNER JOIN (SELECT LEAST(sender_id, target_id)    AS chat_user_min,
@@ -37,7 +31,7 @@
                                AND (cm_all.sender_id = c.sender_id OR cm_all.sender_id = c.target_id))
         WHERE c.sender_id = #{uid}
            OR c.target_id = #{uid}
-        GROUP BY c.id, c.target_id, c.sender_id, c.latest_time, su.nickname, tu.nickname, su.avatar, tu.avatar,
+        GROUP BY c.id, c.target_id, c.sender_id, c.latest_time,
                  cm.content, cm.time
     </select>
     <select id="getChatVoByTwoIds" resultType="com.video.web.main.vo.ChatVo">
@@ -45,14 +39,8 @@
                c.target_id                                                                  AS targetId,
                c.sender_id                                                                  AS senderId,
                c.latest_time                                                                AS latestTime,
-               su.nickname                                                                  AS senderName,
-               tu.nickname                                                                  AS targetName,
-               su.avatar                                                                    AS senderAvatar,
-               tu.avatar                                                                    AS targetAvatar,
                cm.content                                                                   AS 'chatMessage.content'
         FROM chat c
-                 LEFT JOIN user su ON su.uid = c.sender_id
-                 LEFT JOIN user tu ON tu.uid = c.target_id
                  LEFT JOIN (SELECT cm1.*
                             FROM chat_message cm1
                                      INNER JOIN (SELECT LEAST(sender_id, target_id)    AS chat_user_min,
@@ -67,7 +55,7 @@
                 AND GREATEST(c.sender_id, c.target_id) = GREATEST(cm.sender_id, cm.target_id))
         WHERE (c.sender_id = #{senderId} and c.target_id = #{targetId})
            OR (c.sender_id = #{targetId} and c.target_id = #{senderId})
-        GROUP BY c.id, c.target_id, c.sender_id, c.latest_time, su.nickname, tu.nickname, su.avatar, tu.avatar,
+        GROUP BY c.id, c.target_id, c.sender_id, c.latest_time,
                  cm.content, cm.time
     </select>
     <select id="getChatMessagePage" resultType="com.video.model.entity.ChatMessage">

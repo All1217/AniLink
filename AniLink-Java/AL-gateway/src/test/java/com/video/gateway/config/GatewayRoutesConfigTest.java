@@ -25,10 +25,13 @@ class GatewayRoutesConfigTest {
                 .bind("spring.cloud.gateway.routes", Bindable.listOf(RouteDefinition.class))
                 .orElse(List.of());
 
-        assertEquals(2, routes.size());
-        assertEquals("remark-service", routes.get(0).getId());
-        assertEquals("lb://remarkservice", routes.get(0).getUri().toString());
-        assertEquals("web-service", routes.get(1).getId());
-        assertEquals("lb://webservice", routes.get(1).getUri().toString());
+        assertEquals(3, routes.size());
+        assertEquals("user-service", routes.get(0).getId());
+        assertEquals("lb://userservice", routes.get(0).getUri().toString());
+        assertEquals(-1, routes.get(0).getOrder());
+        assertEquals("remark-service", routes.get(1).getId());
+        assertEquals("lb://remarkservice", routes.get(1).getUri().toString());
+        assertEquals("web-service", routes.get(2).getId());
+        assertEquals("lb://webservice", routes.get(2).getUri().toString());
     }
 }

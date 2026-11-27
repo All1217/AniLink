@@ -10,6 +10,7 @@ import com.video.web.main.vo.UserVideoQueryVo;
 import com.video.web.main.vo.VideoFavoriteVo;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
+import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
@@ -39,4 +40,8 @@ public interface FavoriteMapper extends BaseMapper<Favorite> {
     void deleteFVById(Long fid, Long vid);
 
     List<Long> getFVByUidAndVid(long uid, long vid);
+
+    /** 统计用户已有默认收藏夹数量，供注册适配层幂等使用 */
+    @Select("select count(*) from favorite where uid = #{uid} and type = 1 and is_delete = 0")
+    int countDefaultFavorite(@Param("uid") Long uid);
 }

@@ -1,0 +1,67 @@
+package com.video.user.controller.login;
+
+import com.video.common.exception.VideoException;
+import com.video.common.login.LoginUserHolder;
+import com.video.common.result.Result;
+import com.video.common.utils.WebUtils;
+import com.video.model.entity.UserInfo;
+import com.video.user.service.LoginService;
+import com.video.user.vo.LoginVo;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+
+import static com.video.common.constant.JWTConstant.COOKIE_HEADER;
+import static com.video.common.result.ResultCodeEnum.TOKEN_EXPIRED;
+
+@Tag(name = "登录接口")
+@RestController
+@RequestMapping("/main")
+public class LoginController {
+    @Autowired
+    private LoginService service;
+
+    @Operation(summary = "登录")
+    @PostMapping("login")
+    public Result<String> login(@RequestBody LoginVo loginVo) {
+        String jwt = service.login(loginVo);
+        return Result.ok(jwt);
+    }
+
+    @Operation(summary = "获取登陆用户个人信息")
+    @GetMapping("info")
+    public Result<UserInfo> info() {
+        Long userId = LoginUserHolder.getLoginUser().getUserId();
+        UserInfo userInfo = service.getLoginUserInfo(userId);
+        // 实体直出会带 password 哈希，响应里置空
+        if (userInfo != null) {
+            userInfo.setPassword(null);
+        }
+        return Result.ok(userInfo);
+    }
+
+    @Operation(summary = "刷新token")
+    @GetMapping(value = "/public/refresh")
+    public Result<String> refreshToken(@CookieValue(value = COOKIE_HEADER, required = false) String token) {
+        if (token == null) {
+            throw new VideoException(TOKEN_EXPIRED);
+        }
+        // TODO: 拿不到origin
+//        String host = WebUtils.getHeader("origin");
+//        if (host == null) {
+//            throw new VideoException(TOKEN_EXPIRED);
+//        }
+        String newToken = service.refreshToken(WebUtils.cookieBuilder().decode(token));
+        return Result.ok(newToken);
+    }
+
+    @Operation(summary = "登出")
+    @PostMapping("/logout")
+    public void logout() {
+        service.logout();
+    }
+}

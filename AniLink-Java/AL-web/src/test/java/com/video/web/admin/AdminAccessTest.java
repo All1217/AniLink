@@ -1,13 +1,14 @@
 package com.video.web.admin;
 
+import com.video.api.user.UserInternalClient;
+import com.video.api.user.dto.UserProfileVo;
+import com.video.api.user.dto.UserRoleVo;
 import com.video.common.exception.GlobalExceptionHandler;
 import com.video.common.login.LoginUser;
 import com.video.common.login.LoginUserHolder;
-import com.video.model.entity.UserInfo;
 import com.video.web.admin.config.AdminAuthConfig;
 import com.video.web.admin.config.AdminAuthInterceptor;
 import com.video.web.admin.controller.AdminAuthController;
-import com.video.web.main.service.UserInfoService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +31,7 @@ class AdminAccessTest {
     private MockMvc mockMvc;
 
     @MockBean
-    private UserInfoService userInfoService;
+    private UserInternalClient userInternalClient;
 
     @MockBean
     private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
@@ -50,7 +51,7 @@ class AdminAccessTest {
     @Test
     void normalUserReturns309() throws Exception {
         LoginUserHolder.setLoginUser(new LoginUser(1L, "alice"));
-        when(userInfoService.getById(1L)).thenReturn(user(1L, 0));
+        when(userInternalClient.role(1L)).thenReturn(new UserRoleVo(1L, 0));
 
         mockMvc.perform(get("/main/admin/me"))
                 .andExpect(status().isOk())
@@ -60,7 +61,8 @@ class AdminAccessTest {
     @Test
     void adminCanReadMe() throws Exception {
         LoginUserHolder.setLoginUser(new LoginUser(2L, "admin"));
-        when(userInfoService.getById(2L)).thenReturn(user(2L, 1));
+        when(userInternalClient.role(2L)).thenReturn(new UserRoleVo(2L, 1));
+        when(userInternalClient.profile(2L)).thenReturn(profile(2L, 1));
 
         mockMvc.perform(get("/main/admin/me"))
                 .andExpect(status().isOk())
@@ -69,12 +71,12 @@ class AdminAccessTest {
                 .andExpect(jsonPath("$.data.role").value(1));
     }
 
-    private UserInfo user(Long uid, int role) {
-        UserInfo user = new UserInfo();
-        user.setUid(uid);
-        user.setUsername("u" + uid);
-        user.setNickname("n" + uid);
-        user.setRole(role);
-        return user;
+    private UserProfileVo profile(Long uid, int role) {
+        UserProfileVo vo = new UserProfileVo();
+        vo.setUid(uid);
+        vo.setUsername("u" + uid);
+        vo.setNickname("n" + uid);
+        vo.setRole(role);
+        return vo;
     }
 }
