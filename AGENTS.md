@@ -89,7 +89,7 @@ cd mcp-server-database
 - **Agent/Build 模式**：按方案直接改代码，结束后写清「改了什么 + 怎么验证」，不要只描述思路。
 - **Debug 模式**：先复现取证（日志、堆栈、接口返回、`mcp__database__*` 查到的结构/数据），再最小改动修复；不顺手重构无关代码，不改变既有行为。
 - 非平凡需求先做三件事：① 给方案；② 列出无法自主决定的点并请用户确认；③ 检索同类优秀实现（或联网搜索）后借鉴，不照搬。
-- 需求含糊或存在多种合理解读时先问，不猜着写。
+- 需求含糊或存在多种合理解读时先问，不猜着写。并且涉及到具体业务时追问：这个功能是否区分登录态和非登录态？若区分，具体有什么区别？
 - 改完接口/字段后，同步检查网关路由、`AL-api` 的 DTO/实体、前端 `src/api` 与调用方，一并更新。
 - 非平凡问题排查完，把结论追加到对应子项目的 `问题日志.md`（`AniLink-Java/docs/`、`AniLink-AlgorithmEngine/Assets/docs/`）。
 
@@ -134,12 +134,6 @@ cd mcp-server-database
 - `target/`、`node_modules/`、`__pycache__/`、`dist/` 是产物目录，不当源码修改。
 - `mcp-server-database/` 已被 `.gitignore` 忽略，是本地工具：不要 `git add -f`，不要提交它的 `.env`。
 - 三个子项目原本是独立仓库，历史仍在各自 GitHub 仓库上；不要重新 `git init`、不要删除或移动 `.git`。
-
-## 已知遗留问题（改动前留意）
-
-- `AniLink-AlgorithmEngine/src/config/application.py` 里硬编码了 MySQL/Redis/RabbitMQ 口令与 B 站登录 Cookie（含 `SESSDATA`）。属历史遗留：不要复制、不要外传；如需整改，迁到 `.env` 并请用户确认影响面。
-- 引擎配置中的地址、口令与 Java 侧 Nacos 共享配置是两套来源，改端口/账号要两边一起看。
-- 网关 `AccountAuthFilter` 与 `AL-web` 的 `al.auth.resource.exclude-login-paths` 都可能拦请求：新增公开接口需要两处都放行。
 
 ## 参考文档
 

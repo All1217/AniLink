@@ -2,6 +2,8 @@ package com.video.web.main.service.impl;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.video.common.constant.Constant;
+import com.video.common.exception.VideoException;
+import com.video.common.result.ResultCodeEnum;
 import com.video.model.entity.UserVideo;
 import com.video.model.entity.Video;
 import com.video.model.entity.VideoStats;
@@ -128,20 +130,19 @@ public class VideoServiceImpl implements VideoService {
 
     @Override
     public UserVideo interActCoin(UserVideoQueryVo userVideoQueryVo) {
-        Integer cnt = userVideoQueryVo.getActionType();
-        UserVideo res = new UserVideo();
-        String videoKey = Constant.MAIN_VIDEO_COIN_PREFIX + userVideoQueryVo.getVid();
-        if (Boolean.TRUE.equals(redisTemplate.hasKey(videoKey))) {
-            Integer tCount = (Integer) redisTemplate.opsForHash().get(videoKey, userVideoQueryVo.getUid());
-            if (tCount != null) res.setCoin(tCount);
-            else {
-                redisTemplate.opsForHash().put(videoKey, userVideoQueryVo.getUid(), cnt);
-                res.setCoin(cnt);
-            }
-        } else {
-            redisTemplate.opsForHash().put(videoKey, userVideoQueryVo.getUid(), cnt);
-            res.setCoin(cnt);
+        // actionType 是交互枚举（2=投1枚，3=投2枚），不是币数，先换算成 1/2
+        Integer actionType = userVideoQueryVo.getActionType();
+        int requested = actionType == null ? 0 : actionType - 1;
+        if (requested < 1) {
+            throw new VideoException(ResultCodeEnum.PARAM_ERROR.getCode(), "投币数量不合法");
         }
+        int target = Math.min(requested, 2);
+        String videoKey = Constant.MAIN_VIDEO_COIN_PREFIX + userVideoQueryVo.getVid();
+        // 直接写入本次币数：旧逻辑把枚举值当币数写入，历史值 2 可能代表 1 枚，
+        // 不能再与旧值取 max，否则投 1 枚会被抬成 2。
+        redisTemplate.opsForHash().put(videoKey, userVideoQueryVo.getUid(), target);
+        UserVideo res = new UserVideo();
+        res.setCoin(target);
         return res;
     }
 }

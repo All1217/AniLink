@@ -30,7 +30,7 @@
     <select id="pageReplyItem" resultType="com.video.web.main.vo.CommentVo">
         select c.id, c.vid, c.uid, c.root_id, c.parent_id,
                c.to_user_id, c.content, c.love, c.bad,
-               c.create_time, c.is_top, c.is_deleted,
+               c.create_time, c.is_top, c.is_deleted
         from
             (select id, vid, uid, root_id, parent_id,
                     to_user_id, content, love, bad,

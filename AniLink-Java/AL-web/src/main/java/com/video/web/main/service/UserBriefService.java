@@ -50,8 +50,12 @@ public class UserBriefService {
             load(missing);
         }
         Map<Long, UserBriefVo> result = new HashMap<>();
-        distinct.forEach(id -> cache.getIfPresent(id)
-                .ifPresent(user -> result.put(id, user)));
+        distinct.forEach(id -> {
+            Optional<UserBriefVo> cached = cache.getIfPresent(id);
+            if (cached != null) {
+                cached.ifPresent(user -> result.put(id, user));
+            }
+        });
         return result;
     }
 
