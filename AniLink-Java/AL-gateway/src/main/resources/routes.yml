@@ -2,16 +2,63 @@ spring:
   cloud:
     gateway:
       routes:
-        # Phase 1：用户域已迁到 al-user，具体路径优先于 /main/** 的兜底路由
+        # Phase 1：用户域 → al-user
         - id: user-service
           uri: lb://userservice
           order: -1
           predicates:
             - Path=/main/login,/main/login/**,/main/info,/main/logout,/main/user/**,/main/public/refresh
+        # Phase 2：历史/播放进度 → al-playback；旧 record 路径保留一个发布周期
+        - id: playback-service
+          uri: lb://playbackservice
+          order: -2
+          predicates:
+            - Path=/main/video/interact/record/add,/main/playback/**,/main/history/**
+        # Phase 2：实时推荐 Phase 4 才迁 datacenter，先回 webservice
+        - id: video-recommend-service
+          uri: lb://webservice
+          order: -2
+          predicates:
+            - Path=/main/video/public/getRealTimeRecommend
+        # Phase 2：视频元数据/上传/转码/统计/投币 → al-video
+        - id: video-service
+          uri: lb://videoservice
+          order: -1
+          predicates:
+            - Path=/main/video/**,/main/file/**
+        # Phase 3：弹幕的 4 个标签/推荐接口 Phase 4 才迁 datacenter，先回 webservice（更具体，order 更低）
+        - id: danmaku-recommend-service
+          uri: lb://webservice
+          order: -2
+          predicates:
+            - Path=/main/danmu/getSimilarUsers,/main/danmu/filterUserByTags,/main/danmu/getCommonTags,/main/danmu/getTagRankList
+        # Phase 3：评论、弹幕、社交、聊天
+        - id: comment-service
+          uri: lb://commentservice
+          order: -1
+          predicates:
+            - Path=/main/comment/**
+        - id: danmaku-service
+          uri: lb://danmakuservice
+          order: -1
+          predicates:
+            - Path=/main/danmu/**
+        - id: social-service
+          uri: lb://socialservice
+          order: -1
+          predicates:
+            - Path=/main/fans/**,/main/favorite/**
+        - id: chat-service
+          uri: lb://communicationservice
+          order: -1
+          predicates:
+            - Path=/main/chat/**
+        # 点赞
         - id: remark-service
           uri: lb://remarkservice
           predicates:
             - Path=/remark/**
+        # 迁移期兜底
         - id: web-service
           uri: lb://webservice
           predicates:

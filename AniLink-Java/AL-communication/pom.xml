@@ -18,10 +18,70 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>com.video</groupId>
+            <artifactId>AL-common-core</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.video</groupId>
+            <artifactId>AL-common-web</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <!-- 聊天室 HTTP 落库：chat / chat_message 由本服务独占读写 -->
+        <dependency>
+            <groupId>com.video</groupId>
+            <artifactId>AL-common-mybatis</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.video</groupId>
+            <artifactId>AL-common-redis</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.video</groupId>
+            <artifactId>AL-common-mq</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.video</groupId>
+            <artifactId>AL-api</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <!-- 聊天对象双方昵称/头像走 al-user 内部批量接口，不 JOIN user 表 -->
+        <dependency>
+            <groupId>com.video</groupId>
+            <artifactId>AL-user-api</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.video</groupId>
+            <artifactId>AL-auth-resource-sdk</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
         <!--web-->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
+        </dependency>
+        <!-- 用户摘要本地短 TTL 缓存，避免聊天列表逐条 Feign -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
         </dependency>
         <!-- 服务发现 -->
         <dependency>
@@ -42,11 +102,6 @@
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.video</groupId>
-            <artifactId>AL-common-core</artifactId>
-            <version>1.0-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>io.netty</groupId>

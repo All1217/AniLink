@@ -17,19 +17,13 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.video.common.result.ResultCodeEnum.PARAM_ERROR;
 
+/** 弹幕标签过滤实现：标签数据来自 user_tag，Phase 4 随推荐/标签接口整体迁 al-datacenter。 */
 @Slf4j
 @Service
 public class DanmuServiceImpl extends ServiceImpl<DanmuMapper, Danmu> implements DanmuService {
 
     @Autowired
     private DanmuMapper danmuMapper;
-
-    @Override
-    public void insertOne(Danmu danmu) {
-        log.info("danmu: {}", danmu);
-        danmu.setId(0L);
-        danmuMapper.insert(danmu);
-    }
 
     @Override
     public Result<List<Danmu>> filterUserByTags(RecQueryVo queryVo) {

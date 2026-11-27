@@ -1,6 +1,5 @@
 package com.video.web.main.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.video.common.result.Result;
 import com.video.model.entity.Danmu;
 import com.video.model.entity.UserInfo;
@@ -12,43 +11,34 @@ import com.video.web.main.vo.TagRankListVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Collections;
 import java.util.List;
 
-import static com.video.common.result.ResultCodeEnum.APP_SERVER_ERROR;
-
-@Tag(name = "弹幕相关接口")
+/**
+ * 弹幕域的标签/推荐接口：Phase 3 起弹幕发送与公开列表已迁 al-danmaku，
+ * 这 4 个跨域接口（数据来自 user_tag 与 Flask 引擎）在 Phase 4 迁 al-datacenter 之前仍由 AL-web 提供，
+ * 网关对这 4 条具体路径继续指向 webservice。
+ */
+@Tag(name = "弹幕标签/推荐接口（迁移期保留在 AL-web）")
 @RestController
 @RequestMapping("/main/danmu")
 public class DanmuContorller {
     @Autowired
-    private DanmuService danmuService;
-    @Autowired
     private RestTemplate restTemplate;
+    @Autowired
+    private DanmuService danmuService;
     @Autowired
     private UserBriefService userBriefService;
     @Autowired
     private UserTagService userTagService;
-
-    @Operation(summary = "发送弹幕")
-    @PostMapping("/post")
-    public Result postDanmu(@RequestBody Danmu danmu) {
-        danmuService.insertOne(danmu);
-        return Result.ok();
-    }
-
-    @Operation(summary = "查询弹幕列表")
-    @GetMapping("/public/getDanmuList")
-    public Result<List<Danmu>> getDanmuList(@RequestParam Long vid) {
-        LambdaQueryWrapper<Danmu> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(Danmu::getVid, vid);
-        queryWrapper.eq(Danmu::getStatus, 1);
-        List<Danmu> list = danmuService.list(queryWrapper);
-        return Result.ok(list);
-    }
 
     @Operation(summary = "根据弹幕获取相似用户")
     @GetMapping("/getSimilarUsers")

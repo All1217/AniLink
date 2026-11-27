@@ -33,5 +33,7 @@ al:
       max-fail-per-ip: ${AL_LOGIN_MAX_FAIL_IP:20}
       window-seconds: ${AL_LOGIN_WINDOW:900}
   user:
-    # Phase 1 过渡：统计聚合与默认收藏夹仍由 AL-web 承担
+    # Phase 1 过渡：统计聚合仍由 AL-web 承担
     legacy-support-url: ${AL_USER_LEGACY_URL:http://localhost:8022}
+    # Phase 3 起默认收藏夹由 al-social 创建（本地开发直连 8031，可被环境变量覆盖）
+    social-url: ${AL_SOCIAL_URL:http://localhost:8031}

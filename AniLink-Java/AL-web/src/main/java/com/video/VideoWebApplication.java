@@ -8,7 +8,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableScheduling
-@EnableFeignClients(basePackages = "com.video.api.user")
+@EnableFeignClients(basePackages = "com.video.api")
 public class VideoWebApplication {
     public static void main(String[] args) {
         SpringApplication.run(VideoWebApplication.class, args);

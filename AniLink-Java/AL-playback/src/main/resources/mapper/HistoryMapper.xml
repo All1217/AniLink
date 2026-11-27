@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.video.playback.mapper.HistoryMapper">
+    <delete id="delete">
+        delete from bh_video where uid=#{uid} and vid = #{vid}
+    </delete>
+
+    <!-- 历史分页只查属主的 bh_video；标题/封面/时长由 al-video 批量接口补全 -->
+    <select id="getHistoryPage" resultType="com.video.playback.vo.HistoryVo">
+        SELECT
+        h.id, h.uid, h.vid, h.view_time, h.duration, h.is_finish, h.device, h.ip, h.is_delete
+        FROM bh_video h
+        WHERE h.uid = #{queryVo.uid} AND h.is_delete = 0
+        <if test="queryVo.startTime != null">
+            AND h.view_time &gt;= #{queryVo.startTime}
+        </if>
+        <if test="queryVo.endTime != null">
+            AND h.view_time &lt;= #{queryVo.endTime}
+        </if>
+        ORDER BY h.view_time DESC
+    </select>
+
+    <!-- 按时长/关键词筛选需要视频信息，先取该用户全部记录，补全视频摘要后在内存过滤分页 -->
+    <select id="listHistory" resultType="com.video.playback.vo.HistoryVo">
+        SELECT
+        h.id, h.uid, h.vid, h.view_time, h.duration, h.is_finish, h.device, h.ip, h.is_delete
+        FROM bh_video h
+        WHERE h.uid = #{queryVo.uid} AND h.is_delete = 0
+        <if test="queryVo.startTime != null">
+            AND h.view_time &gt;= #{queryVo.startTime}
+        </if>
+        <if test="queryVo.endTime != null">
+            AND h.view_time &lt;= #{queryVo.endTime}
+        </if>
+        ORDER BY h.view_time DESC
+    </select>
+</mapper>

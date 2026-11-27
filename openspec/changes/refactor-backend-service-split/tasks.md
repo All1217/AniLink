@@ -25,10 +25,10 @@
 
 ## 3. Phase 2：抽取 al-video 与 al-playback
 
-- [ ] 3.1 新建 `AL-video`（8026，`videoservice`），迁移 `VideoController`、`FileUploadController`、视频/转码/文件/统计 Service、Mapper、实体与 MinIO/ffmpeg 配置；验证：服务启动、投稿与上传接口冒烟通过
-- [ ] 3.2 由 `AL-video` 接管 `video`、`video_stats`、`user_video` 与 `UpdateStats`（保留投币与收藏 key 聚合，收藏在 Phase 3 切换为事件）；验证：单元测试覆盖 upsert 与重复聚合不重复计数
-- [ ] 3.3 新建 `AL-playback`（8027，`playbackservice`），迁移 `HistoryController`、`HistoryService` 与 `bh_video`，用 Redis ZSet 延迟队列（`video:record:delay` + `video:record:pending:{vid}`）替换 JVM `DelayTask`；验证：单元测试覆盖首插撞唯一键降级、10 秒只落库一次、重启后任务仍在、重复消费幂等、删除历史三处清理
-- [ ] 3.4 增加播放进度别名 `/main/playback/record/add`，旧路径继续可用，并同步修改 `AniLink-web/src/api/history.ts` 一处；验证：`pnpm --dir AniLink-web build` 通过，两条路径返回一致
+- [x] 3.1 新建 `AL-video`（8026，`videoservice`），迁移 `VideoController`、`FileUploadController`、视频/转码/文件/统计 Service、Mapper、实体与 MinIO/ffmpeg 配置；验证：服务启动、投稿与上传接口冒烟通过
+- [x] 3.2 由 `AL-video` 接管 `video`、`video_stats`、`user_video` 与 `UpdateStats`（保留投币与收藏 key 聚合，收藏在 Phase 3 切换为事件）；验证：单元测试覆盖 upsert 与重复聚合不重复计数
+- [x] 3.3 新建 `AL-playback`（8027，`playbackservice`），迁移 `HistoryController`、`HistoryService` 与 `bh_video`，用 Redis ZSet 延迟队列（`video:record:delay` + `video:record:pending:{vid}`）替换 JVM `DelayTask`；验证：单元测试覆盖首插撞唯一键降级、10 秒只落库一次、重启后任务仍在、重复消费幂等、删除历史三处清理
+- [x] 3.4 增加播放进度别名 `/main/playback/record/add`，旧路径继续可用，并同步修改 `AniLink-web/src/api/history.ts` 一处；验证：`pnpm --dir AniLink-web build` 通过，两条路径返回一致
 - [ ] 3.5 回归转码链路：投稿入队、HLS 产物写 MinIO、`hls_url` 更新、失败重试与启动补跑；验证：测试环境完整转码一个视频成功，重试与补跑用例通过
 - [ ] 3.6 切流前补齐视频/文件/历史域契约快照，网关把 `/main/video/**`、`/main/file/**`、`/main/history/**` 与播放进度路径切到新服务，`/main/video/public/getRealTimeRecommend` 继续指向 `webservice`；验证：快照与播放、投稿、历史分页、投币、收藏状态冒烟全部通过
 - [ ] 3.7 在部署文档写明 `al-video` 单副本与 ffmpeg/MinIO 依赖，并演练把视频域路由切回 `webservice`；验证：回滚后播放与投稿恢复，步骤记录到问题日志
@@ -38,8 +38,8 @@
 - [ ] 4.1 新建 `AL-comment`（8028，`commentservice`），迁移评论 Controller/Service/Mapper/实体，作者信息改为 Feign 批量补全；验证：评论分页、回复、删除契约快照通过
 - [ ] 4.2 新建 `AL-danmaku`（8029，WS 8030），迁移弹幕 Controller/Service 与列表/发送逻辑；验证：弹幕发送、公开列表接口测试通过
 - [ ] 4.3 把 `/video` WebSocket 房间从 `AL-communication` 迁入 `AL-danmaku`，移除旧路由与 `HandlerVideo`；验证：客户端连接 `/video`、进房与在线人数计数冒烟通过
-- [ ] 4.4 新建 `AL-social`（8031，`socialservice`），迁移关注/粉丝/收藏 Controller/Service/Mapper，收藏列表的视频信息改 Feign；验证：关注、取关、收藏、批量移动契约快照通过
-- [ ] 4.5 定义 `favorite.changed` 事件并在 `AL-video` 实现幂等消费者，同时停止 `UpdateStats` 对 `main:video:favorite:{vid}` 的扫描；验证：同一 `eventId` 重复消费两次计数只变化一次，收藏计数不回落
+- [x] 4.4 新建 `AL-social`（8031，`socialservice`），迁移关注/粉丝/收藏 Controller/Service/Mapper，收藏列表的视频信息改 Feign；验证：关注、取关、收藏、批量移动契约快照通过
+- [x] 4.5 定义 `favorite.changed` 事件并在 `AL-video` 实现幂等消费者，同时停止 `UpdateStats` 对 `main:video:favorite:{vid}` 的扫描；验证：同一 `eventId` 重复消费两次计数只变化一次，收藏计数不回落
 - [ ] 4.6 把 `ChatController`、`ChatService`、`ChatMapper`、`Chat` 实体迁入 `AL-communication` 并补 MyBatis 依赖，HTTP 落库与 `/chat` WebSocket 保持现有先后时序；验证：私信发送、分页、未读数联调通过
 - [ ] 4.7 切流前补齐评论/弹幕/关注/收藏/聊天域契约快照，网关切 `/main/comment/**`、`/main/danmu/**`、`/main/fans/**`、`/main/favorite/**`、`/main/chat/**`，4 个推荐/标签接口继续指向 `webservice`；验证：快照与评论、弹幕、关注、收藏、私信冒烟全部通过
 - [ ] 4.8 演练把评论域路由切回 `webservice` 再切回 `commentservice`；验证：回滚前后评论读写一致，步骤记录到问题日志

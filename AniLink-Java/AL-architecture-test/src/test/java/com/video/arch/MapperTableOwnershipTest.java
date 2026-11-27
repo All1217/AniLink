@@ -38,7 +38,8 @@ class MapperTableOwnershipTest {
 
     /** 匹配 from / join / into / update / delete from 后面的表名，兼容 `schema`.`table` 与反引号 */
     private static final Pattern TABLE_REF = Pattern.compile(
-            "(?i)\\b(?:from|join|into|update)\\s+(?:`?\\w+`?\\.)?`?(\\w+)`?");
+            // KEY 前有 ON DUPLICATE KEY 时不是表名，排除掉
+            "(?i)(?<!KEY )\\b(?:from|join|into|update)\\s+(?:`?\\w+`?\\.)?`?(\\w+)`?");
 
     @Test
     void mapperXmlUsesOnlyOwnedTables() throws IOException {
@@ -82,6 +83,8 @@ class MapperTableOwnershipTest {
             violations.add(mapperXml + " 读取失败: " + e.getMessage());
             return violations;
         }
+        // 去掉 XML 标签（<update id="..."> 等），只扫描 SQL 文本，避免把标签属性当成表名
+        sql = sql.replaceAll("<[^>]+>", " ");
         Matcher matcher = TABLE_REF.matcher(sql);
         while (matcher.find()) {
             String table = matcher.group(1).toLowerCase();

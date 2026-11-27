@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.video.social.mapper.FansMapper">
+
+    <!-- 关注列表：只查属主表 follow；用户资料由 al-user 内部接口批量补全 -->
+    <select id="getFollowList" resultType="com.video.model.entity.UserInfo">
+        select f.followee_id as uid,
+               IF(EXISTS (SELECT 1
+                          FROM follow f2
+                          WHERE f2.follower_id = f.followee_id
+                            AND f2.followee_id = f.follower_id), 1, 0) AS role
+        from follow f
+        where f.follower_id = #{query.followerId}
+    </select>
+
+    <!-- 粉丝列表：只查属主表 follow；用户资料由 al-user 内部接口批量补全 -->
+    <select id="getFansList" resultType="com.video.model.entity.UserInfo">
+        select f.follower_id as uid,
+               IF(EXISTS (SELECT 1
+                          FROM follow f2
+                          WHERE f2.follower_id = f.followee_id
+                            AND f2.followee_id = f.follower_id), 1, 0) AS role
+        from follow f
+        where f.followee_id = #{query.followeeId}
+    </select>
+</mapper>

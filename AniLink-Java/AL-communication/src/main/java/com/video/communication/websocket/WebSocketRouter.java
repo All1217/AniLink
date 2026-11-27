@@ -9,6 +9,7 @@ import io.netty.util.AttributeKey;
 import io.netty.util.ReferenceCountUtil;
 import lombok.extern.slf4j.Slf4j;
 
+/** WebSocket 路由器：只接受 /chat 私信握手；/video 视频房间已迁到 al-danmaku（8030）。 */
 @Slf4j
 public class WebSocketRouter extends ChannelInboundHandlerAdapter {
 
@@ -17,19 +18,14 @@ public class WebSocketRouter extends ChannelInboundHandlerAdapter {
         if (msg instanceof FullHttpRequest) {
             FullHttpRequest req = (FullHttpRequest) msg;
             String uri = req.uri();
-            // 根据路径路由到不同的处理器
-            if (uri.startsWith("/video")) {
-                handleWebSocketHandshake(ctx, req, "/video");
-                // 移除当前处理器，避免重复处理
-                ctx.pipeline().remove(this);
-                // 添加视频业务处理器
-                ctx.pipeline().addLast(new HandlerVideo("/video"));
-            } else if (uri.startsWith("/chat")) {
+            // 根据路径路由到聊天处理器
+            if (uri.startsWith("/chat")) {
                 handleWebSocketHandshake(ctx, req, "/chat");
+                // 移除当前处理器，避免重复处理
                 ctx.pipeline().remove(this);
                 ctx.pipeline().addLast(new HandlerChat("/chat"));
             } else {
-                log.warn("不支持的 WebSocket 路径: {}", uri);
+                log.warn("不支持的 WebSocket 路径: {}（/video 请连接 danmakuservice 的 8030 端口）", uri);
                 ReferenceCountUtil.release(msg);
                 ctx.close();
             }

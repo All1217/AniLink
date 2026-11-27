@@ -4,7 +4,6 @@ import com.video.common.exception.VideoException;
 import com.video.model.entity.Video;
 import com.video.web.admin.mapper.AdminVideoMapper;
 import com.video.web.admin.service.impl.AdminVideoServiceImpl;
-import com.video.web.main.mapper.VideoMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -26,35 +25,33 @@ class AdminVideoTest {
 
     @Mock
     private AdminVideoMapper adminVideoMapper;
-    @Mock
-    private VideoMapper videoMapper;
     @InjectMocks
     private AdminVideoServiceImpl service;
 
     @Test
     void approvePendingVideo() {
-        when(videoMapper.selectById(1L)).thenReturn(video(1L, 0));
+        when(adminVideoMapper.selectVideoStatus(1L)).thenReturn(video(1L, 0));
         service.updateStatus(1L, 1, 9L);
         verify(adminVideoMapper).updateStatus(eq(1L), eq(1), isNull());
     }
 
     @Test
     void rejectPendingVideo() {
-        when(videoMapper.selectById(2L)).thenReturn(video(2L, 0));
+        when(adminVideoMapper.selectVideoStatus(2L)).thenReturn(video(2L, 0));
         service.updateStatus(2L, 2, 9L);
         verify(adminVideoMapper).updateStatus(eq(2L), eq(2), isNull());
     }
 
     @Test
     void takedownWritesDeleteDate() {
-        when(videoMapper.selectById(3L)).thenReturn(video(3L, 1));
+        when(adminVideoMapper.selectVideoStatus(3L)).thenReturn(video(3L, 1));
         service.updateStatus(3L, 3, 9L);
         verify(adminVideoMapper).updateStatus(eq(3L), eq(3), any());
     }
 
     @Test
     void repeatedApproveIsRejected() {
-        when(videoMapper.selectById(4L)).thenReturn(video(4L, 1));
+        when(adminVideoMapper.selectVideoStatus(4L)).thenReturn(video(4L, 1));
         VideoException error = assertThrows(VideoException.class,
                 () -> service.updateStatus(4L, 1, 9L));
         assertEquals(409, error.getCode());
@@ -71,7 +68,7 @@ class AdminVideoTest {
 
     @Test
     void visibilityUpdates() {
-        when(videoMapper.selectById(6L)).thenReturn(video(6L, 1));
+        when(adminVideoMapper.selectVideoStatus(6L)).thenReturn(video(6L, 1));
         service.updateVisible(6L, 1, 9L);
         verify(adminVideoMapper).updateVisible(6L, 1);
     }

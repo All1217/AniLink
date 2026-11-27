@@ -10,6 +10,7 @@ import com.video.common.utils.PasswordUtil;
 import com.video.model.entity.UserInfo;
 import com.video.model.entity.UserStats;
 import com.video.user.adapter.LegacyUserSupportClient;
+import com.video.user.adapter.SocialFavoriteClient;
 import com.video.user.mapper.UserInfoMapper;
 import com.video.user.service.UserInfoService;
 import com.video.user.util.AccountRules;
@@ -36,6 +37,9 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
     private UserInfoMapper uiMapper;
     @Autowired
     private LegacyUserSupportClient legacySupport;
+    /** Phase 3 起默认收藏夹由 al-social 创建（favorite 表归其所有） */
+    @Autowired
+    private SocialFavoriteClient socialFavoriteClient;
     @Autowired
     private StringRedisTemplate redisTemplate;
     private final BoundValueOperations<String, String> serialOps;
@@ -86,7 +90,7 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
         } catch (DuplicateKeyException e) {
             throw new VideoException(ResultCodeEnum.USERNAME_TAKEN);
         }
-        // 5.初始化用户额外数据；默认收藏夹仍属 AL-web，过渡期通过内部接口创建
+        // 5.初始化用户额外数据；默认收藏夹由 al-social 通过内部接口幂等创建
         UserStats userStats = new UserStats();
         userStats.setUid(uid);
         uiMapper.inserUserStats(userStats);
@@ -94,12 +98,12 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
         return userInfo;
     }
 
-    /** 过渡期：favorite 表仍属 AL-web，创建失败只记日志，不影响注册 */
+    /** 默认收藏夹由 al-social 创建，失败只记日志，不影响注册 */
     private void createDefaultFavoriteBestEffort(Long uid) {
         try {
-            legacySupport.ensureDefaultFavorite(uid);
+            socialFavoriteClient.ensureDefaultFavorite(uid);
         } catch (Exception e) {
-            log.warn("创建默认收藏夹失败（过渡接口）：uid={}", uid, e);
+            log.warn("创建默认收藏夹失败（al-social 内部接口）：uid={}", uid, e);
         }
     }
 

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.video.social.mapper.FavoriteMapper">
+
+    <!-- 收藏夹列表：只查属主表 favorite -->
+    <select id="getFavoriteListPage" resultType="com.video.model.entity.Favorite">
+        select * from favorite where uid = #{uid} and is_delete = 0
+    </select>
+
+    <!-- 收藏视频关系：只查属主表 favorite_video，标题/封面/统计由 al-video 批量补全 -->
+    <select id="getVideoFavoritePage" resultType="com.video.social.vo.VideoFavoriteVo">
+        SELECT fv.vid,
+               fv.time
+        FROM favorite_video fv
+        WHERE fv.fid = #{fid}
+          AND fv.is_remove = 0
+        ORDER BY fv.time DESC
+    </select>
+
+    <!-- 视频在该用户的哪些收藏夹：只查属主表 favorite_video + favorite -->
+    <select id="getFVByUidAndVid" resultType="java.lang.Long">
+        SELECT f.fid
+        FROM favorite_video fv
+        JOIN favorite f ON fv.fid = f.fid
+        WHERE fv.vid = #{vid}
+          AND f.uid = #{uid}
+          AND fv.is_remove = 0
+          AND f.is_delete = 0
+    </select>
+</mapper>

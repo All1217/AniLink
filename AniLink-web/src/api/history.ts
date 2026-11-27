@@ -28,8 +28,8 @@ export const fetchHistoryPage = (query: HistoryQueryVo) =>
 /** 新增一条观看历史（开始播放时调用一次） */
 export const addHistory = (payload: BrowseHistory) => post('/main/history/add', payload)
 
-/** 上报播放进度（播放中每 3 秒一次） */
-export const updateProgress = (payload: VideoRecordFormDTO) => post('/main/video/interact/record/add', payload)
+/** 上报播放进度（播放中每 3 秒一次；旧路径 /main/video/interact/record/add 保留一个发布周期） */
+export const updateProgress = (payload: VideoRecordFormDTO) => post('/main/playback/record/add', payload)
 
 /** 清空当前用户全部历史 */
 export const clearHistory = (query: HistoryQueryVo) => del('/main/history/deleteByUid', query)

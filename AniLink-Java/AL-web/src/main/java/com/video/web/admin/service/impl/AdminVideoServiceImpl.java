@@ -8,7 +8,6 @@ import com.video.web.admin.mapper.AdminVideoMapper;
 import com.video.web.admin.service.AdminVideoService;
 import com.video.web.admin.vo.AdminVideoQueryVo;
 import com.video.web.admin.vo.AdminVideoVo;
-import com.video.web.main.mapper.VideoMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -20,11 +19,9 @@ import java.util.Date;
 public class AdminVideoServiceImpl implements AdminVideoService {
 
     private final AdminVideoMapper adminVideoMapper;
-    private final VideoMapper videoMapper;
 
-    public AdminVideoServiceImpl(AdminVideoMapper adminVideoMapper, VideoMapper videoMapper) {
+    public AdminVideoServiceImpl(AdminVideoMapper adminVideoMapper) {
         this.adminVideoMapper = adminVideoMapper;
-        this.videoMapper = videoMapper;
     }
 
     @Override
@@ -48,7 +45,8 @@ public class AdminVideoServiceImpl implements AdminVideoService {
         if (status == null) {
             throw new VideoException(202, "缺少目标状态");
         }
-        Video video = videoMapper.selectById(vid);
+        // 管理端是 video 表的过渡读方：状态校验走 AdminVideoMapper，不依赖视频域 Mapper
+        Video video = adminVideoMapper.selectVideoStatus(vid);
         if (video == null) {
             throw new VideoException(404, "稿件不存在");
         }
@@ -69,7 +67,7 @@ public class AdminVideoServiceImpl implements AdminVideoService {
         if (visible == null || (visible != 0 && visible != 1)) {
             throw new VideoException(202, "visible 只能是 0 或 1");
         }
-        Video video = videoMapper.selectById(vid);
+        Video video = adminVideoMapper.selectVideoStatus(vid);
         if (video == null) {
             throw new VideoException(404, "稿件不存在");
         }

@@ -53,6 +53,12 @@
             <artifactId>AL-user-api</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
+        <!-- Phase 2 过渡：收藏/推荐等遗留域通过内部契约读取视频信息 -->
+        <dependency>
+            <groupId>com.video</groupId>
+            <artifactId>AL-video-api</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-openfeign</artifactId>
