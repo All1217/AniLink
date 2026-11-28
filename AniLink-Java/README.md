@@ -177,30 +177,83 @@ mvn -q -DskipTests install
 
 ### 5.2 启动顺序
 
-先启动 Nacos、MySQL、Redis、RabbitMQ、MinIO，然后按依赖顺序启动：
+#### 5.2.1 先起基础设施
 
-1. `AL-gateway`（8090）
-2. `AL-user`（8025）
-3. `AL-video`（8026）
-4. `AL-playback`（8027）
-5. `AL-comment`（8028）
-6. `AL-danmaku`（8029 / WS 8030）
-7. `AL-social`（8031）
-8. `AL-datacenter`（8032）
-9. `AL-admin`（8040）
-10. `AL-remark`（8021）
-11. `AL-communication`（8023 / WS 8024）
+顺序不能反：**Nacos 必须先于所有业务服务**（注册与共享配置），MySQL/Redis/RabbitMQ/MinIO 必须先于使用它们的服务。
 
-用 Maven 启动示例：
+| 依赖 | 默认地址 | 被谁使用 |
+| --- | --- | --- |
+| Nacos | `192.168.150.102:8848` | 全部服务（注册 + `shared-*.yaml`） |
+| MySQL | `127.0.0.1:3306`，库见第 8 节 | user / video / playback / comment / danmaku / social / communication / remark |
+| Redis | DB 5 | user / video / playback / social / danmaku / communication |
+| RabbitMQ | vhost `AniLink` | video / social / remark / communication |
+| MinIO | `MINIO_*` 环境变量 | video（封面/头像/HLS）、admin（存储管理） |
+| ffmpeg | PATH 或 `AL_FFMPEG_PATH` | video（HLS 转码、图片派生）、admin（封面回填） |
+
+#### 5.2.2 再起业务服务（11 个）
+
+| 顺序 | 模块 | 端口 | Nacos 名 | 启动前置 |
+| --- | --- | --- | --- | --- |
+| 1 | `AL-user` | 8025 | `userservice` | `al_user` 库、Redis |
+| 2 | `AL-video` | 8026 | `videoservice` | `al_video` 库、MinIO、ffmpeg、MQ |
+| 3 | `AL-playback` | 8027 | `playbackservice` | `al_playback` 库、Redis |
+| 4 | `AL-social` | 8031 | `socialservice` | `al_social` 库、MQ |
+| 5 | `AL-comment` | 8028 | `commentservice` | `al_comment` 库 |
+| 6 | `AL-danmaku` | 8029 / WS 8030 | `danmakuservice` | `al_danmaku` 库 |
+| 7 | `AL-datacenter` | 8032 | `datacenterservice` | 无自有库；可选 Flask 引擎 |
+| 8 | `AL-admin` | 8040 | `adminservice` | 无业务库；MinIO、ffmpeg |
+| 9 | `AL-remark` | 8021 | `remarkservice` | `al_remark` 库、MQ |
+| 10 | `AL-communication` | 8023 / WS 8024 | `communicationservice` | `al_communication` 库、Redis、MQ |
+| 11 | `AL-gateway` | 8090 | `gatewayservice` | Nacos；其余服务已注册 |
+
+**顺序限制说明**：
+
+- 1–10 之间**没有强制先后**：服务间调用走 Nacos 服务名 + Feign，启动期不做强依赖调用；`UserBriefService`/`VideoBriefService` 这类摘要缓存失败会降级为空，不阻塞启动。
+- **网关放最后**最稳：它本身只依赖 Nacos，但服务尚未注册时请求会得到 503；先起网关也能运行，等服务注册后自动可路由。
+- `AL-video` **只能单副本**：ffmpeg 转码队列在进程内单线程，多副本会重复转码、争用 `transcode_status`。
+- `AL-admin` 没有 `spring.datasource`，不要给它配置业务库；它通过 `AL-user`/`AL-video` 的 `/internal/v1/admin/**` 读写。
+- `AL-datacenter` 没有自有表；Flask 引擎未启动时推荐/标签接口按设计返回空结果，不影响其它链路。
+- `AL-api`、`AL-*-api`、`AL-common-*`、`AL-auth` 是库模块，没有启动类。
+- Python 引擎（`AniLink-AlgorithmEngine`，5000）当前**暂不要启动**：它跨 `al_user`/`al_video`/`al_danmaku` 读取，分库后需先完成跨库改造或只读账号（Phase 5-C）。
+
+#### 5.2.3 一键启动脚本
+
+**双击启动**：直接双击 `AniLink-Java/start-all.bat` 即可（等价于下面的 PowerShell 命令）；双击 `stop-all.bat` 停止本脚本启动的服务。首次启动会先 `mvn install`，需要几分钟，窗口会显示进度；服务在后台运行，关闭窗口不影响。
+
+命令行参数（`start-all.bat` 会把参数原样传给 `scripts/start-all.ps1`）：
 
 ```powershell
-mvn -q -pl AL-gateway spring-boot:run
+cd AniLink-Java
+.\start-all.bat                          # 构建 + 最多 3 个并发启动（默认）
+.\start-all.bat -SkipBuild               # jar 已构建，跳过 mvn install
+.\start-all.bat -MaxParallel 2           # 更保守，最多 2 个并发
+.\start-all.bat -Only AL-user,AL-video
+.\stop-all.bat                           # 停止
+```
+
+底层脚本：`scripts/start-all.ps1`，封装「构建 → 分批启动 → 端口检查 → 结果汇总」。
+
+- `-MaxParallel` 被**硬限制在 1–3**（`ValidateRange`），每批服务端口就绪后才进入下一批，避免 11 个 JVM 同时初始化打爆内存；
+- 编译是一次 Maven 进程（`mvn -q -DskipTests install`），不会按模块并发编译；启动才是最多 3 个并发；
+- 每个服务默认 `-Xmx160m`，可用 `-HeapMb` 调整；
+- 日志：`logs/start-all/<模块>.out.log` / `.err.log`，PID 文件 `logs/start-all/pids.json`；
+- 端口已占用时视为“已启动”直接跳过，不会重复拉起；
+- 启动失败会打印该服务日志尾部并以非 0 退出，便于 CI/脚本判断。
+
+#### 5.2.4 手动启动示例
+
+```powershell
+# 任选 IDEA 运行对应启动类，或命令行：
 mvn -q -pl AL-user spring-boot:run
 mvn -q -pl AL-video spring-boot:run
 mvn -q -pl AL-datacenter spring-boot:run
+mvn -q -pl AL-gateway spring-boot:run
+
+# 低内存机器可限制堆（11 个服务 × 128m 约 1.4GB）：
+java -Xmx128m -jar AL-user/target/AL-user-1.0-SNAPSHOT.jar
 ```
 
-也可以在 IDEA 中直接运行第 2 节的启动类。`AL-video` 与 `AL-admin` 启动前确认 `MINIO_*` 已设置；`AL-gateway` 与 `AL-user` 使用同一份 `AUTH_JWT_SECRET`。
+启动前确认：`AL-video`/`AL-admin` 已设置 `MINIO_*`；`AL-gateway` 与 `AL-user` 使用同一份 `AUTH_JWT_SECRET`；`AL_FFMPEG_PATH` 指向可执行的 ffmpeg。
 
 ### 5.3 前端联调
 
@@ -267,9 +320,8 @@ mvn -q -pl AL-datacenter spring-boot:run
 | `AL-admin` | 无业务库 | 走 `AL-user` / `AL-video` 的 `/internal/v1/admin/**` 管理契约 |
 | `AL-datacenter` | 无业务库 | BFF，聚合走 Feign |
 
-**分库脚本已就绪，但需要人工在停机窗口执行**：各服务 `application.yml` 的 `spring.datasource.url` 已指向自己的库，
-必须与 `../db/migrations/phase5/` 的脚本（快照 → 建库 → `RENAME TABLE` → 验证 → 回滚预案）在**同一停机窗口**内发布，
-否则服务会因目标库/表不存在而启动失败。迁移方案、验证 SQL 与回滚步骤见 [db/migrations/phase5/README.md](../db/migrations/phase5/README.md)。
+**分库已在本机开发库执行**（2026-11-28，16 张表同实例 `RENAME`，行数逐表核对一致；迁移前快照在 `db/temp/`，已 gitignore）。
+脚本与 runbook 保留在 `../db/migrations/phase5/`，用于新环境初始化、其它环境迁移与回滚；新环境也可直接用 `../db/schema/` 建空库。
 
 | 类型 | 位置 | 用途 |
 | --- | --- | --- |
@@ -302,12 +354,12 @@ mvn test
 
 ## 11. 当前迁移状态与注意事项
 
-- Phase 0–4 已完成：公共模块拆分、网关身份透传与路由外置、9 个业务服务 + 管理端拆分、`AL-web` 删除。
+- Phase 0–5 已完成：公共模块拆分、网关身份透传与路由外置、11 个可启动服务（含网关与管理端）拆分、`AL-web` 删除、MySQL 按服务分库。
 - `/internal/v1/**` 只用于服务间 Feign，网关不暴露；新增跨域数据一律走内部契约 + 批量接口，禁止跨域 JOIN。
 - MySQL 已按服务分库（Phase 5）：各服务 `application.yml` 指向自己的库，跨域数据只走内部契约；库名/表归属、账号模板与迁移 runbook 见 `../db/README.md` 与 `../db/migrations/phase5/README.md`。
-- 分库脚本（`db/migrations/phase5/`）需在停机窗口人工执行：0 号快照 → 建库 → `RENAME TABLE` → 验证 → 回滚预案；本仓库不自动执行 DDL/DML。
+- 当前开发库已执行分库（16 表 RENAME，快照在 `db/temp/`）；脚本保留用于新环境与回滚，不再需要重复执行。
 - 画像引擎仍按单库连接读多域表（`user_tag` / `user_video` / `video` / `danmu`），分库后需要单独的跨库改造（Phase 5-C），在此之前不要启动引擎写入画像标签。
-- 分库配置已先行：迁移执行前，需要创建 DataSource 的 `@SpringBootTest` 全上下文用例（如 `AL-video` 的 `MinioTest`）会报 `Unknown database 'al_video'`，属预期现象；可用 `SPRING_DATASOURCE_URL` 临时指回旧 `video` 库再测，最终以迁移后 `mvn test` 全绿为准。
+- 新环境按 `../db/schema/` 初始化分库后，直接以各服务 `application.yml` 的默认数据源启动即可；只有未迁移的旧环境才需要 `SPRING_DATASOURCE_URL` 临时指回 `video` 库。
 - `AL-video` 的转码队列是进程内单实例模型，**不要同时启动多个 AL-video 实例**；投稿只能由 `AL-video` 处理。
 - 对外只暴露网关 8090；业务服务端口（8021–8040）仅供本机/内网开发与调试。
 - 升级依赖版本、改 Nacos 共享配置或公共口令前先确认影响面。

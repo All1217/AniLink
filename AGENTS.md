@@ -54,8 +54,9 @@ mvn -q -pl AL-video spring-boot:run          # 启动类 VideoApplication
 # 其它启动类：GatewayApplication / UserApplication / PlaybackApplication / CommentApplication /
 #             DanmakuApplication / SocialApplication / DataCenterApplication / AdminApplication /
 #             RemarkApplication / CommunicationApplication
-# 启动顺序：Nacos/MySQL/Redis/RabbitMQ/MinIO → AL-gateway → AL-user → AL-video → AL-playback →
-#           AL-comment → AL-danmaku → AL-social → AL-datacenter → AL-admin → AL-remark → AL-communication
+# 启动顺序：Nacos/MySQL/Redis/RabbitMQ/MinIO → AL-user → AL-video → AL-playback → AL-social →
+#           AL-comment → AL-danmaku → AL-datacenter → AL-admin → AL-remark → AL-communication → AL-gateway
+#           业务服务之间无强依赖，网关放最后最稳（服务未注册时请求 503）；AL-video 只能单副本
 mvn -q test
 
 # 前端
@@ -125,7 +126,7 @@ cd mcp-server-database
 
 - Nacos 地址、共享配置（`shared-spring.yaml` / `shared-mysql.yaml` / `shared-redis.yaml` / `shared-mq.yaml`）写在各服务 `bootstrap.yml`；库账号与口令在 Nacos 的共享配置里，不写进本地 `application.yml`。
 - `AL-video` 与 `AL-admin` 的 MinIO 走环境变量 `MINIO_ENDPOINT` / `MINIO_ACCESSKEY` / `MINIO_SECRETKEY`；引擎的大模型 key 走 `DASHSCOPE_API_KEY`。
-- 库名（Phase 5 分库）：每个服务一个库，各服务 `application.yml` 的 `spring.datasource.url` 已指向自己的库——`al_user`（AL-user：user/user_stats/user_tag）、`al_video`（AL-video：video/video_stats/user_video/category）、`al_playback`（AL-playback：bh_video）、`al_comment`（AL-comment：comment）、`al_danmaku`（AL-danmaku：danmu/sub_danmu）、`al_social`（AL-social：follow/favorite/favorite_video）、`al_communication`（AL-communication：chat/chat_message）、`al_remark`（AL-remark，空库）；AL-admin 走内部契约、AL-datacenter 为 BFF，均不需要业务库。数据库账号/口令仍由 Nacos `shared-mysql.yaml` 注入（目标是最小权限 per-service 账号，模板见 `db/migrations/phase5/03-grants.sql`）。分库脚本已就绪但**需人工在停机窗口执行**，见 [db/migrations/phase5/README.md](db/migrations/phase5/README.md)；配置已指向新库，**迁移与配置发布必须在同一停机窗口内完成**，未迁移前直接启动会因目标库/表不存在而失败。Redis 用 5 号库；RabbitMQ vhost `AniLink`。
+- 库名（Phase 5 分库）：每个服务一个库，各服务 `application.yml` 的 `spring.datasource.url` 已指向自己的库——`al_user`（AL-user：user/user_stats/user_tag）、`al_video`（AL-video：video/video_stats/user_video/category）、`al_playback`（AL-playback：bh_video）、`al_comment`（AL-comment：comment）、`al_danmaku`（AL-danmaku：danmu/sub_danmu）、`al_social`（AL-social：follow/favorite/favorite_video）、`al_communication`（AL-communication：chat/chat_message）、`al_remark`（AL-remark，空库）；AL-admin 走内部契约、AL-datacenter 为 BFF，均不需要业务库。数据库账号/口令仍由 Nacos `shared-mysql.yaml` 注入（目标是最小权限 per-service 账号，模板见 `db/migrations/phase5/03-grants.sql`）。分库已在当前开发库执行（16 表 RENAME，快照在 `db/temp/`）；脚本与 runbook 保留用于新环境初始化/其它环境迁移/回滚，见 [db/migrations/phase5/README.md](db/migrations/phase5/README.md)。Redis 用 5 号库；RabbitMQ vhost `AniLink`。
 - 未经确认不要改公共配置、Nacos 共享配置、`.env`，也不要升级中间件版本。
 
 ## 硬性约束
