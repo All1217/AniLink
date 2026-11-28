@@ -8,13 +8,13 @@ AniLink 是一个仿 B 站（bilibili）的视频社区全栈项目，原为三�
 
 默认以资深 Spring Cloud + Vue 3 + Python 算法工程师的标准判断与实现。
 
-- 主链路：浏览器 → Vue 3 SPA（dev 8080，`/api` 反代）→ 网关 `AL-gateway`（8090）→ `/main/**` 到 `AL-web`（8022，迁移期）、`/remark/**` 到 `AL-remark`（8021）；点赞/评论/收藏/历史走 MySQL + Redis + RabbitMQ，聊天与弹幕走 `AL-communication`（8023 + Netty 8024 的 WebSocket）。
+- 主链路：浏览器 → Vue 3 SPA（旧前端 dev 8080，新前端 `AniLink-web` dev 5173，`/api` 反代）→ 网关 `AL-gateway`（8090）按子路径分流：`/main/login`、`/main/info`、`/main/logout`、`/main/public/refresh`、`/main/user/**` → `AL-user`（8025），`/main/video/**`、`/main/file/**` → `AL-video`（8026），`/main/history/**`、`/main/playback/**`、播放进度 → `AL-playback`（8027），`/main/comment/**` → `AL-comment`（8028），`/main/danmu/**` → `AL-danmaku`（8029 + Netty WS 8030），`/main/fans/**`、`/main/favorite/**` → `AL-social`（8031），`/main/dataCenter/**` 与推荐/标签接口 → `AL-datacenter`（8032），`/main/admin/**` → `AL-admin`（8040），`/remark/**` → `AL-remark`（8021），`/main/chat/**` 与私信 WS → `AL-communication`（8023 + Netty 8024）；点赞/评论/收藏/历史走 MySQL + Redis + RabbitMQ。`AL-web` 已在 Phase 4 删除，网关不再有 `/main/**` 兜底路由。
 - 画像/推荐：`AniLink-AlgorithmEngine`（Flask，5000）消费 RabbitMQ 消息、共享 Redis 缓存、按 REST 提供 `/recommendations/<user_id>`，定时任务（APScheduler，120s 一轮）刷新行为标签、质量阈值与标签向量。
-- 鉴权：双令牌（`access-token` 30 分钟放请求头 + `refresh-token` 7 天滑动放 HttpOnly Cookie），两者用 `typ` claim 区分；网关 `AccountAuthFilter` 只认 access，`AL-web` 的 `/main/public/refresh` 只认 refresh 并按 jti 轮换（5 秒宽限、重用即吊销全端）；`AL-auth` 的 resource-sdk 拦截器（`LoginAuthInterceptor` / `UserInfoInterceptor` / `FeignRelayUserInterceptor`）只依赖网关透传的 `user-id` 头，`al.auth.resource.enable` 控制是否启用，免登录路径由 `AL-web` 的 `al.auth.resource.exclude-login-paths` 声明。状态码：305 未登录 / 601 过期可续约 / 602 非法需重登。
+- 鉴权：双令牌（`access-token` 30 分钟放请求头 + `refresh-token` 7 天滑动放 HttpOnly Cookie），两者用 `typ` claim 区分；网关 `AccountAuthFilter` 只认 access，`AL-user` 的 `/main/public/refresh` 只认 refresh 并按 jti 轮换（5 秒宽限、重用即吊销全端）；`AL-auth` 的 resource-sdk 拦截器（`LoginAuthInterceptor` / `UserInfoInterceptor` / `FeignRelayUserInterceptor`）只依赖网关透传的 `user-id` 头，`al.auth.resource.enable` 控制是否启用，免登录路径由各业务服务的 `al.auth.resource.exclude-login-paths` 声明。状态码：305 未登录 / 601 过期可续约 / 602 非法需重登。
 - 账号体系：`user.username` 是用户自选的登录名（唯一、大小写不敏感、本期不可改，2-20 位中英文/数字/下划线且不能纯数字），`user.nickname` 仅用于展示（可重复、可改）；密码用 bcrypt（Hutool `BCrypt`，cost 10）存储，历史 MD5 在登录成功时就地升级；登录失败统一返回 307 且按「账号 5 次 / IP 20 次（15 分钟窗口）」限流（212），改密接口需校验旧密码并吊销全部会话。
-- 视频播放：投稿后 `AL-web` 用 ffmpeg 异步转 HLS（单线程队列，`al.transcode.*`，ffmpeg 路径由 `AL_FFMPEG_PATH` 覆盖），产物在 MinIO 的 `video` 桶 `hls/{vid}/`（6s fMP4 分片 + `index.m3u8`），状态写 `video.transcode_status`（0 待转 / 1 转中 / 2 完成 / 3 失败），完成后写 `video.hls_url`；前端 `hls.js`（动态 import，优先 MSE；只有不支持 MSE 的浏览器才退回原生 HLS，Safari 原生 HLS 只在该分支生效）优先播 `hlsUrl`，为空或致命错误回退 `videoUrl`（MP4 + Range）。转码还会把原 MP4 重封装成 faststart（moov 前置），对象名不变；视频码率按「源码率 ×1.15 封顶，且不超过 `al.transcode.max-bitrate-kbps`」控制（ffprobe 读源码率，缺失时退回配置上限）。启动时自动补跑 `transcode_status=0` 的稿件，所以**不要手工改这一列**。
+- 视频播放：投稿后 `AL-video` 用 ffmpeg 异步转 HLS（单线程队列，`al.transcode.*`，ffmpeg 路径由 `AL_FFMPEG_PATH` 覆盖），产物在 MinIO 的 `video` 桶 `hls/{vid}/`（6s fMP4 分片 + `index.m3u8`），状态写 `video.transcode_status`（0 待转 / 1 转中 / 2 完成 / 3 失败），完成后写 `video.hls_url`；前端 `hls.js`（动态 import，优先 MSE；只有不支持 MSE 的浏览器才退回原生 HLS，Safari 原生 HLS 只在该分支生效）优先播 `hlsUrl`，为空或致命错误回退 `videoUrl`（MP4 + Range）。转码还会把原 MP4 重封装成 faststart（moov 前置），对象名不变；视频码率按「源码率 ×1.15 封顶，且不超过 `al.transcode.max-bitrate-kbps`」控制（ffprobe 读源码率，缺失时退回配置上限）。启动时自动补跑 `transcode_status=0` 的稿件，所以**不要手工改这一列**。
 - 依赖服务：Nacos（注册 + 共享配置）、MySQL、Redis、RabbitMQ、MinIO、Elasticsearch；地址与口令不在文档里复述，见各服务配置。
-- 图片链路：封面/头像上传后由 `AL-web` 用 ffmpeg 生成 WebP 派生图（封面 480w/960w，头像 192 方图），派生失败回退原图；`video.cover_url` 存 960 主图、`video.cover_thumb_url` 存 480 缩略图，列表接口返回 `coverThumbUrl`，前端列表用缩略图 + `srcset`，首行 `eager` + `fetchpriority=high`。头像未设置时由前端内置占位图兜底，`user.avatar` 不再写入内网默认地址。配置项 `al.image.*`，ffmpeg 路径复用 `al.transcode.ffmpeg-path`。
+- 图片链路：封面/头像上传后由 `AL-video` 用 ffmpeg 生成 WebP 派生图（封面 480w/960w，头像 192 方图），派生失败回退原图；`video.cover_url` 存 960 主图、`video.cover_thumb_url` 存 480 缩略图，列表接口返回 `coverThumbUrl`，前端列表用缩略图 + `srcset`，首行 `eager` + `fetchpriority=high`。头像未设置时由前端内置占位图兜底，`user.avatar` 不再写入内网默认地址。配置项 `al.image.*`，ffmpeg 路径复用 `al.transcode.ffmpeg-path`。
 
 ## 仓库结构
 
@@ -31,9 +31,9 @@ AniLink 是一个仿 B 站（bilibili）的视频社区全栈项目，原为三�
 | `.dsh-bundles/mcp-database/` | DSH 的配置型插件，把上面的 MCP 接进 DeepSeek Harness |
 | `logs/` | 本地命令输出（gitignore），如 `git-bash-log.txt` |
 
-后端模块：`AL-gateway`（网关，reactive）、`AL-web`（视频/用户/评论/弹幕/粉丝/收藏/历史/数据中心 + 管理端 `com.video.web.admin`，迁移期）、`AL-remark`（点赞）、`AL-communication`（WebSocket 聊天）、`AL-auth`（`AL-auth-resource-sdk`，鉴权 starter）、`AL-api`（共享 entity/dto）。`AL-common` 已拆为 `AL-common-core` / `AL-common-web` / `AL-common-mq` / `AL-common-redis` / `AL-common-mybatis`；`AL-user`（8025，`userservice`）已随 Phase 1 落地；`AL-video` / `AL-playback` / `AL-social` / `AL-comment` / `AL-danmaku` / `AL-datacenter` 与 `AL-<service>-api` 契约模块在 Phase 2–4 按需创建。规划端口与服务名：`AL-user` 8025 `userservice`、`AL-video` 8026 `videoservice`、`AL-playback` 8027 `playbackservice`、`AL-comment` 8028 `commentservice`、`AL-danmaku` 8029 + WS 8030 `danmakuservice`、`AL-social` 8031 `socialservice`、`AL-datacenter` 8032 `datacenterservice`；网关按子路径分流，对外 `/main/**` 不变。拆分设计与任务见 `openspec/changes/refactor-backend-service-split/`。
+后端模块：`AL-gateway`（8090 网关，reactive）、`AL-user`（8025 `userservice`：登录/注册/刷新/登出/改密、资料、统计、标签）、`AL-video`（8026 `videoservice`：视频元数据、投稿上传、HLS 转码、统计、投币、`user_video`）、`AL-playback`（8027 `playbackservice`：历史与播放进度）、`AL-comment`（8028 `commentservice`：评论）、`AL-danmaku`（8029 + WS 8030 `danmakuservice`：弹幕与视频房间）、`AL-social`（8031 `socialservice`：关注/粉丝、收藏夹）、`AL-datacenter`（8032 `datacenterservice`：统计/推荐/标签聚合 BFF）、`AL-admin`（8040 `adminservice`：管理端）、`AL-remark`（8021 点赞）、`AL-communication`（8023 + WS 8024 聊天）、`AL-auth`（`AL-auth-resource-sdk` 鉴权 starter）、`AL-api`（共享 entity/dto）；契约模块 `AL-user-api` / `AL-video-api` / `AL-social-api` 存放各服务 `/internal/v1/**` 的 Feign 客户端与 DTO。`AL-common` 已拆为 `AL-common-core` / `AL-common-web` / `AL-common-mq` / `AL-common-redis` / `AL-common-mybatis`。`AL-web` 已在 Phase 4 删除，对应模块与父 pom entry 均已移除；网关按子路径分流，对外 `/main/**` 不变。拆分设计与任务见 `openspec/changes/refactor-backend-service-split/`。
 
-`AL-web` 内部分层：`controller` / `service` / `mapper` / `vo` / `mq` / `task` / `config`；实体与 DTO 在 `AL-api`。
+各业务服务内部分层跟随 `AL-video`：`controller`（含 `controller/internal` 内部契约）/ `service` / `mapper` / `vo` / `mq` / `task` / `config`；跨服务共享的实体与 DTO 在 `AL-api`，跨服务契约在 `AL-*-api` 模块。
 前端目录：`views`（BrowseHistory / MainWindow / MessageCenter / UploadManager / UserPage / Video）/ `components` / `api`（`Models.ts`、`index.ts`、`app.ts`）/ `router` / `styles` / `util`（`http` 封装）。
 
 ## 技术栈（以仓库 `pom.xml`、`package.json`、`requirements.txt` 为准）
@@ -49,10 +49,13 @@ AniLink 是一个仿 B 站（bilibili）的视频社区全栈项目，原为三�
 ```powershell
 # 后端：仓库没有 mvnw（只有 pom.xml），用 IDEA 直接运行各模块启动类，或本机 mvn
 cd AniLink-Java
-mvn -q -DskipTests install                   # 首次或改过 AL-api / AL-common-core / AL-auth 后
-mvn -q -pl AL-web spring-boot:run            # 启动类 VideoWebApplication
-# 其它启动类：GatewayApplication / RemarkApplication / CommunicationApplication
-# 启动顺序（README）：AL-gateway → AL-communication → AL-remark → AL-web（新服务启用后见子项目 README 的完整顺序）
+mvn -q -DskipTests install                   # 首次或改过 AL-api / AL-common-core / AL-auth / AL-*-api 后
+mvn -q -pl AL-video spring-boot:run          # 启动类 VideoApplication
+# 其它启动类：GatewayApplication / UserApplication / PlaybackApplication / CommentApplication /
+#             DanmakuApplication / SocialApplication / DataCenterApplication / AdminApplication /
+#             RemarkApplication / CommunicationApplication
+# 启动顺序：Nacos/MySQL/Redis/RabbitMQ/MinIO → AL-gateway → AL-user → AL-video → AL-playback →
+#           AL-comment → AL-danmaku → AL-social → AL-datacenter → AL-admin → AL-remark → AL-communication
 mvn -q test
 
 # 前端
@@ -97,7 +100,7 @@ cd mcp-server-database
 
 - 简洁干练，不过度设计；不引入新依赖、新中间件、新抽象层，除非需求确实需要。
 - 每个类、每个方法前加简短注释；方法体达到 30 行及以上时，内部按步骤加注释（沿用现有代码的中文注释风格）。
-- 命名与分层跟随现有代码：接口沿用 `/main/**`（web）、`/remark/**`（remark）前缀；前端请求统一走 `src/api`，不要在各页面里直接 `axios`。
+- 命名与分层跟随现有代码：接口沿用 `/main/**`（对外业务）、`/remark/**`（remark）、`/internal/v1/**`（服务间内部契约，网关不暴露）前缀；前端请求统一走 `src/api`，不要在各页面里直接 `axios`。
 - 前端页面用现代简洁风：信息密度高、少留白；沿用 Element Plus 与 `src/styles` 里现有主题变量，不自造设计系统。
 - 只改与需求相关的文件，不做无关格式化、重排或重命名；源码与文档统一 UTF-8（命令行读中文请显式 `Get-Content -Encoding UTF8`）。
 
@@ -116,13 +119,13 @@ cd mcp-server-database
 - 一个服务进程只连一种库：切 PG/MySQL 要 `stop.bat` 后重开另一个 start 脚本，客户端地址不变。
 - 只连本机/内网开发库，**不要把内网库当生产库排查**。
 - 工具不可用时按序排查：`8102` 是否已启动 → `.env` 的 `PGSQL_PASS` / `MYSQL_PASS` → `connection_info` 的 `dialect`/`jdbcHost` → DSH 插件行（`.dsh-bundles/mcp-database`）或 Cursor 的 MCP 是否刷新。
-- 仍不可用时，退回到 `AniLink-AlgorithmEngine/Assets/sql.sql`、`AL-web/src/main/resources/mapper/*.xml` 与 `AL-web/src/main/java/com/video/web/main/mapper/` 下的 Mapper 接口确认字段，**禁止臆造表名与字段**。
+- 仍不可用时，退回到 `AniLink-AlgorithmEngine/Assets/sql.sql`、各服务 `src/main/resources/mapper/*.xml` 与 `src/main/java/**/mapper/` 下的 Mapper 接口确认字段，**禁止臆造表名与字段**。
 
 ## 配置与外部依赖
 
 - Nacos 地址、共享配置（`shared-spring.yaml` / `shared-mysql.yaml` / `shared-redis.yaml` / `shared-mq.yaml`）写在各服务 `bootstrap.yml`；库账号与口令在 Nacos 的共享配置里，不写进本地 `application.yml`。
-- `AL-web` 的 MinIO 走环境变量 `MINIO_ENDPOINT` / `MINIO_ACCESSKEY` / `MINIO_SECRETKEY`；引擎的大模型 key 走 `DASHSCOPE_API_KEY`。
-- 库名：`video`（AL-web）、`al_remark`（AL-remark）、`al_communication`（AL-communication）；Redis 用 5 号库；RabbitMQ vhost `AniLink`。
+- `AL-video` 与 `AL-admin` 的 MinIO 走环境变量 `MINIO_ENDPOINT` / `MINIO_ACCESSKEY` / `MINIO_SECRETKEY`；引擎的大模型 key 走 `DASHSCOPE_API_KEY`。
+- 库名：`video`（al-user / al-video / al-playback / al-comment / al-danmaku / al-social / al-admin 共享，Phase 5 数据库拆分前保持原库）、`al_remark`（AL-remark）、`al_communication`（AL-communication）；Redis 用 5 号库；RabbitMQ vhost `AniLink`。
 - 未经确认不要改公共配置、Nacos 共享配置、`.env`，也不要升级中间件版本。
 
 ## 硬性约束

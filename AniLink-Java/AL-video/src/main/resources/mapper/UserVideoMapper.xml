@@ -35,6 +35,39 @@
               group by vid) t
     </select>
 
+    <!-- 数据中心日汇总：video ⨝ user_video 均为本服务属主表；粉丝集合由调用方传入 -->
+    <resultMap id="videoDailyStatsMap" type="com.video.api.video.dto.VideoDailyStatsVo">
+        <result column="stat_date" property="date"/>
+        <result column="play_count" property="play"/>
+        <result column="fans_play" property="fansPlay"/>
+        <result column="like_count" property="like"/>
+    </resultMap>
+
+    <select id="dailyStats" resultMap="videoDailyStatsMap">
+        select date(uv.play_time)                                          as stat_date,
+               coalesce(sum(uv.play), 0)                                   as play_count,
+               coalesce(sum(uv.love), 0)                                   as like_count,
+               <choose>
+                   <when test="query.fansUids != null and query.fansUids.size() > 0">
+                       coalesce(sum(case when uv.uid in
+                       <foreach collection="query.fansUids" item="fanUid" open="(" separator="," close=")">
+                           #{fanUid}
+                       </foreach>
+                       then uv.play else 0 end), 0)                        as fans_play
+                   </when>
+                   <otherwise>
+                       0                                                      as fans_play
+                   </otherwise>
+               </choose>
+        from video v
+                 join user_video uv on v.vid = uv.vid
+        where v.uid = #{query.uid}
+          and uv.play_time &gt;= #{beginTime}
+          and uv.play_time &lt; #{endTime}
+        group by date(uv.play_time)
+        order by stat_date
+    </select>
+
     <insert id="batchUpdateStats">
         <foreach collection="list" item="item" separator=","
                  open="INSERT INTO user_video (uid, vid, play, love, unlove, coin, collect, play_time, love_time, coin_time, collect_time)

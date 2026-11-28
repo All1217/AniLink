@@ -55,6 +55,16 @@
         </dependency>
         <dependency>
             <groupId>com.video</groupId>
+            <artifactId>AL-video-api</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.video</groupId>
+            <artifactId>AL-social-api</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>com.video</groupId>
             <artifactId>AL-auth-resource-sdk</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
@@ -70,6 +80,11 @@
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+        <!-- 内部契约客户端默认留空 url，走 Nacos 服务发现时需要负载均衡 -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
         </dependency>
         <dependency>
             <groupId>com.alibaba.cloud</groupId>

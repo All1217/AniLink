@@ -2,6 +2,7 @@ package com.video.video.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.video.api.video.dto.UserVideoStatsVo;
 import com.video.model.entity.UserVideo;
 import com.video.model.entity.Video;
 import com.video.model.entity.VideoStats;
@@ -47,4 +48,10 @@ public interface VideoMapper extends BaseMapper<Video> {
     /** 启动时把「转码中」复位成「待转码」，补跑上次中断的任务 */
     @Update("update video set transcode_status = 0, transcode_updated_at = now() where transcode_status = 1")
     int resetTranscoding();
+
+    /**
+     * 按 UP 主汇总名下已过审可见稿件的获赞/播放/投稿/收藏。
+     * 稿件归属看 video.uid；user_video.uid 是观看者（跨域用户 id），不能当作者过滤。
+     */
+    UserVideoStatsVo userVideoStats(@Param("uid") Long uid);
 }

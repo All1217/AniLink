@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * 视频域对外接口（端口 8026，由网关 /main/video/** 转发）。
- * 实时推荐与播放进度上报不属于视频域：前者暂留 webservice，后者归属 al-playback。
+ * 实时推荐与播放进度上报不属于视频域：前者归 al-datacenter，后者归 al-playback。
  */
 @Slf4j
 @Tag(name = "视频与视频数据相关接口")

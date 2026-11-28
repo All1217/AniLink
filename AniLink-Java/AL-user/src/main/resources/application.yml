@@ -32,8 +32,8 @@ al:
       max-fail-per-user: ${AL_LOGIN_MAX_FAIL_USER:5}
       max-fail-per-ip: ${AL_LOGIN_MAX_FAIL_IP:20}
       window-seconds: ${AL_LOGIN_WINDOW:900}
+  # 用户统计：粉丝/关注走 al-social，获赞/播放/投稿/收藏走 al-video；
+  # 两个内部契约客户端默认 url 留空，走 Nacos 服务发现，不需要本地地址配置。
   user:
-    # Phase 1 过渡：统计聚合仍由 AL-web 承担
-    legacy-support-url: ${AL_USER_LEGACY_URL:http://localhost:8022}
-    # Phase 3 起默认收藏夹由 al-social 创建（本地开发直连 8031，可被环境变量覆盖）
+    # 默认收藏夹由 al-social 创建（本地开发直连 8031，可被环境变量覆盖）
     social-url: ${AL_SOCIAL_URL:http://localhost:8031}

@@ -84,4 +84,14 @@
         from video_stats) vs on v.vid = vs.vid
         order by play
     </select>
+
+    <!-- UP 主视频统计：按 video.uid 限定稿件归属，计数取 video_stats 聚合（引用 user_video.uid 会错算到观看者） -->
+    <select id="userVideoStats" resultType="com.video.api.video.dto.UserVideoStatsVo">
+        select coalesce(sum(vs.good), 0)    as like_count,
+               coalesce(sum(vs.play), 0)    as play_count,
+               count(v.vid)                 as video_count,
+               coalesce(sum(vs.collect), 0) as collect_count
+        from (select vid from video where uid = #{uid} and status = 1 and visible = 0) v
+        left join video_stats vs on v.vid = vs.vid
+    </select>
 </mapper>

@@ -22,9 +22,11 @@
         <module>AL-playback</module>
         <module>AL-comment</module>
         <module>AL-danmaku</module>
+        <module>AL-social-api</module>
         <module>AL-social</module>
+        <module>AL-datacenter</module>
+        <module>AL-admin</module>
         <module>AL-architecture-test</module>
-        <module>AL-web</module>
         <module>AL-remark</module>
         <module>AL-gateway</module>
         <module>AL-auth</module>

@@ -56,6 +56,12 @@
             <artifactId>AL-video-api</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
+        <!-- 本服务内部契约 DTO（/internal/v1/social/** 的返回类型）放在 AL-social-api -->
+        <dependency>
+            <groupId>com.video</groupId>
+            <artifactId>AL-social-api</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
         <dependency>
             <groupId>com.video</groupId>
             <artifactId>AL-auth-resource-sdk</artifactId>

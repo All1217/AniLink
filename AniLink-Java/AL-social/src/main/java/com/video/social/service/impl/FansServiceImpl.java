@@ -1,6 +1,7 @@
 package com.video.social.service.impl;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.video.api.social.dto.UserFollowStatsVo;
 import com.video.api.user.dto.UserBriefVo;
 import com.video.model.entity.Follow;
 import com.video.model.entity.UserInfo;
@@ -52,6 +53,27 @@ public class FansServiceImpl implements FansService {
         IPage<UserInfo> result = fansMapper.getFansList(page, query);
         enrich(result.getRecords());
         return result;
+    }
+
+    @Override
+    public List<Long> listFansIds(Long uid) {
+        if (uid == null) {
+            return List.of();
+        }
+        return fansMapper.listFansIds(uid);
+    }
+
+    /** 关注统计：一次 SQL 取两个方向的 count；查询无结果时返回 0 而不是 null */
+    @Override
+    public UserFollowStatsVo userStats(Long uid) {
+        UserFollowStatsVo stats = uid == null ? null : fansMapper.userStats(uid);
+        if (stats != null) {
+            return stats;
+        }
+        UserFollowStatsVo empty = new UserFollowStatsVo();
+        empty.setFansCount(0L);
+        empty.setFollowCount(0);
+        return empty;
     }
 
     /** 用户资料改由 al-user 批量补全；role 是互相关注标记，由 SQL 计算后保持不动 */

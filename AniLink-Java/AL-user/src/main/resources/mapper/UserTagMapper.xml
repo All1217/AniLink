@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.video.user.mapper.UserTagMapper">
+
+    <!-- 共同标签：两个用户各自标签的交集，只查属主表 user_tag -->
+    <select id="listCommonTagNames" resultType="java.lang.String">
+        select tag_name
+        from user_tag
+        where uid = #{uid}
+          and tag_name in (select tag_name from user_tag where uid = #{otherUid})
+    </select>
+
+    <!-- 批量取用户标签：数据中心做标签排行/弹幕过滤时在内存聚合 -->
+    <select id="listByUids" resultType="com.video.model.entity.UserTag">
+        select uid, tag_name, weight
+        from user_tag
+        where uid in
+        <foreach collection="uids" item="item" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </select>
+
+    <!-- 按标签取用户 id：沿用旧接口「权重 > 0」的过滤条件 -->
+    <select id="listUidsByTagName" resultType="java.lang.Long">
+        select distinct uid
+        from user_tag
+        where tag_name = #{tagName}
+          and weight &gt; 0
+    </select>
+</mapper>

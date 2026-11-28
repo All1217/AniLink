@@ -7,8 +7,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * 网关侧 JWT 初始化：与 AL-web 使用同一份密钥与有效期配置，
- * 否则会出现"网关判过期、AL-web 判合法"这种不一致。
+ * 网关侧 JWT 初始化：与下游业务服务使用同一份密钥与有效期配置，
+ * 否则会出现"网关判过期、服务判合法"这种不一致。
  */
 @Slf4j
 @Configuration

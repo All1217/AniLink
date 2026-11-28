@@ -1,0 +1,29 @@
+server:
+  port: 8032
+  address: 0.0.0.0
+
+al:
+  auth:
+    # 网关不转发 /internal/**；数据中心本身不暴露内部契约，这里保留与其它服务一致的放行配置
+    resource:
+      exclude-login-paths:
+        - /internal/**
+  # 推荐/相似用户走 Flask 算法引擎；地址与超时可被环境变量覆盖
+  datacenter:
+    engine-url: ${AL_ENGINE_URL:http://localhost:5000}
+    engine-connect-timeout-ms: ${AL_ENGINE_CONNECT_TIMEOUT:1000}
+    engine-read-timeout-ms: ${AL_ENGINE_READ_TIMEOUT:3000}
+  # 各域内部契约地址：留空时走 Nacos 服务发现
+  video:
+    service-url: ${AL_VIDEO_URL:}
+  user:
+    service-url: ${AL_USER_URL:}
+  social:
+    service-url: ${AL_SOCIAL_URL:}
+  # 弹幕明细只读 al-danmaku 公开列表（标签聚合用）
+  danmaku:
+    service-url: ${AL_DANMAKU_URL:}
+
+logging:
+  level:
+    com.video.datacenter: info

@@ -1,7 +1,11 @@
 package com.video.user.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.video.api.social.SocialInternalClient;
+import com.video.api.social.dto.UserFollowStatsVo;
 import com.video.api.user.dto.UserBriefVo;
+import com.video.api.video.VideoInternalClient;
+import com.video.api.video.dto.UserVideoStatsVo;
 import com.video.common.exception.VideoException;
 import com.video.common.result.Result;
 import com.video.common.result.ResultCodeEnum;
@@ -9,7 +13,6 @@ import com.video.common.utils.CodeUtil;
 import com.video.common.utils.PasswordUtil;
 import com.video.model.entity.UserInfo;
 import com.video.model.entity.UserStats;
-import com.video.user.adapter.LegacyUserSupportClient;
 import com.video.user.adapter.SocialFavoriteClient;
 import com.video.user.mapper.UserInfoMapper;
 import com.video.user.service.UserInfoService;
@@ -35,8 +38,12 @@ import static com.video.common.result.ResultCodeEnum.APP_SERVER_ERROR;
 public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> implements UserInfoService {
     @Autowired
     private UserInfoMapper uiMapper;
+    /** 粉丝/关注数由 al-social 汇总（follow 表归其所有） */
     @Autowired
-    private LegacyUserSupportClient legacySupport;
+    private SocialInternalClient socialInternalClient;
+    /** 获赞/播放/投稿/收藏由 al-video 汇总（video / video_stats 归其所有） */
+    @Autowired
+    private VideoInternalClient videoInternalClient;
     /** Phase 3 起默认收藏夹由 al-social 创建（favorite 表归其所有） */
     @Autowired
     private SocialFavoriteClient socialFavoriteClient;
@@ -131,19 +138,29 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
     @Override
     @Transactional
     public void updateUserStats(Long uid) {
-        // 过渡期：follow / video / video_stats 仍属 AL-web，统计值从内部接口取
-        UserStatsCountsVo counts = legacySupport.stats(uid).getData();
-        if (counts == null) {
+        // 1.跨域取数：社交域给粉丝/关注，视频域给获赞/播放/投稿/收藏
+        UserFollowStatsVo followStats;
+        UserVideoStatsVo videoStats;
+        try {
+            followStats = socialInternalClient.userStats(uid);
+            videoStats = videoInternalClient.userStats(uid);
+        } catch (Exception e) {
+            // 任一域取数失败就跳过本次更新，保留旧统计值，避免把 0 写进 user_stats
+            log.warn("拉取用户统计失败，跳过本次更新：uid={}", uid, e);
             return;
         }
+        if (followStats == null || videoStats == null) {
+            return;
+        }
+        // 2.合并两个域的结果，写入用户统计表
         UserStats userStats = new UserStats();
         userStats.setUid(uid);
-        userStats.setFansCount(counts.getFansCount());
-        userStats.setFollowCount(counts.getFollowCount());
-        userStats.setLikeCount(counts.getLikeCount());
-        userStats.setPlayCount(counts.getPlayCount());
-        userStats.setVideoCount(counts.getVideoCount());
-        userStats.setCollectCount(counts.getCollectCount());
+        userStats.setFansCount(followStats.getFansCount());
+        userStats.setFollowCount(followStats.getFollowCount());
+        userStats.setLikeCount(videoStats.getLikeCount());
+        userStats.setPlayCount(videoStats.getPlayCount());
+        userStats.setVideoCount(videoStats.getVideoCount());
+        userStats.setCollectCount(videoStats.getCollectCount());
         uiMapper.updateUserStats(userStats);
     }
 

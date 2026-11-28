@@ -19,7 +19,7 @@ import java.util.List;
 /**
  * 弹幕相关接口：只承接弹幕发送与公开列表。
  * 标签/推荐类接口（getSimilarUsers、filterUserByTags、getCommonTags、getTagRankList）
- * 在 Phase 4 迁入 al-datacenter 之前仍由 AL-web 提供，路由继续指向 webservice。
+ * 由 al-datacenter 提供，网关按更具体的路径优先转发到 datacenterservice。
  */
 @Tag(name = "弹幕相关接口")
 @RestController

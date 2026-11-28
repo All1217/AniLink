@@ -46,8 +46,8 @@
 
 ## 5. Phase 4：聚合 BFF 与下线 AL-web
 
-- [ ] 5.1 新建 `AL-datacenter`（8032，`datacenterservice`），通过 Feign 聚合 `al-video` 日汇总与 `al-social` 粉丝数据，保持 `DataResVo` 输出结构；验证：数据中心契约快照与拆分前一致
-- [ ] 5.2 把 `getRealTimeRecommend`、`getSimilarUsers`、`getCommonTags`、`getTagRankList`、`filterUserByTags` 迁入 `AL-datacenter`，Flask 地址改为配置项；验证：五个接口的契约测试通过，Flask 不可达时返回一致的空结果而非 500
+- [x] 5.1 新建 `AL-datacenter`（8032，`datacenterservice`），通过 Feign 聚合 `al-video` 日汇总与 `al-social` 粉丝数据，保持 `DataResVo` 输出结构；验证：数据中心契约快照与拆分前一致
+- [x] 5.2 把 `getRealTimeRecommend`、`getSimilarUsers`、`getCommonTags`、`getTagRankList`、`filterUserByTags` 迁入 `AL-datacenter`，Flask 地址改为配置项；验证：五个接口的契约测试通过，Flask 不可达时返回一致的空结果而非 500
 - [ ] 5.3 切流前补齐数据中心/推荐/标签契约快照，网关切 `/main/dataCenter/**` 与上述具体推荐/标签路径；验证：快照、前端数据中心页与首页推荐冒烟通过
 - [ ] 5.4 删除 `AL-web` 模块、父 `pom.xml` 中的 module、Nacos 数据源与旧路由；验证：`mvn -q -DskipTests install` 通过，9 个业务服务与网关全部启动
 - [ ] 5.5 更新 `AniLink-Java/README.md`、根 `AGENTS.md`、`AniLink-Java/docs/问题日志.md` 与启动脚本；验证：按文档从零启动全部服务成功

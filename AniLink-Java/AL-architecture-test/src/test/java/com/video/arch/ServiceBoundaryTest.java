@@ -21,8 +21,7 @@ class ServiceBoundaryTest {
 
     /** 迁移期仍存在的实现包；新服务不得反向依赖它们。 */
     private static final String[] LEGACY = {
-            "com.video.web..", "com.video.remark..",
-            "com.video.communication..", "com.video.gateway.."
+            "com.video.remark..", "com.video.communication..", "com.video.gateway.."
     };
 
     @ArchTest

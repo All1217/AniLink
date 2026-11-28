@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.video.admin.mapper.AdminVideoMapper">
+
+    <sql id="adminVideoColumns">
+        v.vid, v.uid, v.title, v.status, v.visible, v.transcode_status,
+        v.cover_url, v.video_url, v.hls_url, v.upload_date, v.delete_date,
+        u.nickname as author_name
+    </sql>
+
+    <select id="pageAdmin" resultType="com.video.admin.vo.AdminVideoVo">
+        select
+        <include refid="adminVideoColumns"/>
+        from video v
+        left join user u on v.uid = u.uid
+        <where>
+            <choose>
+                <when test="query.status != null">
+                    v.status = #{query.status}
+                </when>
+                <otherwise>
+                    v.status &lt;&gt; 3
+                </otherwise>
+            </choose>
+            <if test="query.uid != null">
+                and v.uid = #{query.uid}
+            </if>
+            <if test="query.keyword != null and query.keyword != ''">
+                and v.title like concat('%', #{query.keyword}, '%')
+            </if>
+        </where>
+        order by v.upload_date desc, v.vid desc
+    </select>
+
+    <select id="getAdminDetail" resultType="com.video.admin.vo.AdminVideoVo">
+        select
+        <include refid="adminVideoColumns"/>
+        from video v
+        left join user u on v.uid = u.uid
+        where v.vid = #{vid}
+    </select>
+</mapper>

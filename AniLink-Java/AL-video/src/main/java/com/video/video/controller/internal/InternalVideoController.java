@@ -1,10 +1,14 @@
 package com.video.video.controller.internal;
 
+import com.video.api.video.dto.UserVideoStatsVo;
 import com.video.api.video.dto.VideoBriefVo;
+import com.video.api.video.dto.VideoDailyStatsQueryVo;
+import com.video.api.video.dto.VideoDailyStatsVo;
 import com.video.api.video.dto.VideoStatsVo;
 import com.video.model.entity.VideoStats;
 import com.video.video.mapper.VideoMapper;
 import com.video.video.mapper.VideoStatsMapper;
+import com.video.video.service.VideoDailyStatsService;
 import com.video.video.vo.VideoVo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -28,10 +32,13 @@ public class InternalVideoController {
 
     private final VideoMapper videoMapper;
     private final VideoStatsMapper videoStatsMapper;
+    private final VideoDailyStatsService videoDailyStatsService;
 
-    public InternalVideoController(VideoMapper videoMapper, VideoStatsMapper videoStatsMapper) {
+    public InternalVideoController(VideoMapper videoMapper, VideoStatsMapper videoStatsMapper,
+                                   VideoDailyStatsService videoDailyStatsService) {
         this.videoMapper = videoMapper;
         this.videoStatsMapper = videoStatsMapper;
+        this.videoDailyStatsService = videoDailyStatsService;
     }
 
     /** 批量取视频摘要：沿用视频列表的公开可见/审核通过过滤，不存在的 id 不出现在结果里 */
@@ -63,6 +70,31 @@ public class InternalVideoController {
         vo.setShare(stats.getShare());
         vo.setComment(stats.getComment());
         return vo;
+    }
+
+    /** 按 UP 主与时间范围取日汇总：数据中心画播放/点赞趋势用，缺失日期补 0 */
+    @Operation(summary = "按 UP 主与时间范围取日汇总")
+    @PostMapping("/daily-stats")
+    public List<VideoDailyStatsVo> dailyStats(@RequestBody VideoDailyStatsQueryVo query) {
+        return videoDailyStatsService.dailyStats(query);
+    }
+
+    /** 取 UP 主视频统计汇总：获赞/播放/投稿/收藏，没有稿件时各项为 0 */
+    @Operation(summary = "取 UP 主视频统计汇总")
+    @GetMapping("/users/{uid}/stats")
+    public UserVideoStatsVo userStats(@PathVariable("uid") Long uid) {
+        UserVideoStatsVo stats = videoMapper.userVideoStats(uid);
+        return stats == null ? emptyUserStats() : stats;
+    }
+
+    /** 聚合查询无稿件时也应返回 0，而不是 null，方便调用方直接落库 */
+    private UserVideoStatsVo emptyUserStats() {
+        UserVideoStatsVo stats = new UserVideoStatsVo();
+        stats.setLikeCount(0L);
+        stats.setPlayCount(0L);
+        stats.setVideoCount(0);
+        stats.setCollectCount(0);
+        return stats;
     }
 
     /** 列表查询结果转跨服务摘要，只暴露收藏/历史/评论补全所需字段 */

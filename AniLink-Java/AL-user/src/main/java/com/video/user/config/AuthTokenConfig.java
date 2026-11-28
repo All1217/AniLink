@@ -25,7 +25,7 @@ public class AuthTokenConfig {
                 properties.getAccessTtl() * 1000L,
                 properties.getRefreshTtl() * 1000L,
                 properties.isLegacyCompat());
-        log.info("AL-web JWT 初始化完成：access-ttl={}s，refresh-ttl={}s，宽限={}s，最大会话={}，旧令牌兼容={}",
+        log.info("AL-user JWT 初始化完成：access-ttl={}s，refresh-ttl={}s，宽限={}s，最大会话={}，旧令牌兼容={}",
                 properties.getAccessTtl(), properties.getRefreshTtl(),
                 properties.getPrevGrace(), properties.getMaxSessions(), properties.isLegacyCompat());
     }

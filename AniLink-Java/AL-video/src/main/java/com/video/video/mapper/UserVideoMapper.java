@@ -1,5 +1,7 @@
 package com.video.video.mapper;
 
+import com.video.api.video.dto.VideoDailyStatsQueryVo;
+import com.video.api.video.dto.VideoDailyStatsVo;
 import com.video.model.entity.UserVideo;
 import com.video.model.entity.VideoStats;
 import com.video.video.vo.UserVideoQueryVo;
@@ -7,6 +9,7 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 
@@ -26,6 +29,14 @@ public interface UserVideoMapper {
     UserVideo getInterActionStats(Long uid, Long vid);
 
     void batchUpdateStats(List<UserVideo> list);
+
+    /**
+     * 按 UP 主与时间范围聚合每日播放/粉丝播放/点赞。
+     * 只连属主表 video 与 user_video；粉丝集合由调用方传入，不 JOIN follow。
+     */
+    List<VideoDailyStatsVo> dailyStats(@Param("query") VideoDailyStatsQueryVo query,
+                                       @Param("beginTime") LocalDateTime beginTime,
+                                       @Param("endTime") LocalDateTime endTime);
 
     /**
      * 收藏事件幂等 upsert：行不存在则插入，已存在则覆盖收藏标记。

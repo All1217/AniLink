@@ -1,0 +1,42 @@
+server:
+  port: 8040
+  address: 0.0.0.0
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/video?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=GMT%2b8
+
+#用于打印框架生成的sql语句，便于调试
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+logging:
+  level:
+    com.video.admin.mapper: debug
+
+# 管理端要浏览/清理对象存储、回填封面缩略图，复用与 AL-web 相同的 MinIO 桶
+video:
+  minio:
+    endpoint: ${MINIO_ENDPOINT}
+    accessKey: ${MINIO_ACCESSKEY}
+    secretKey: ${MINIO_SECRETKEY}
+
+al:
+  auth:
+    # 网关不透传 /internal/**，这里放行给服务间 Feign 调用
+    resource:
+      exclude-login-paths:
+        - /internal/**
+  # 封面缩略图回填复用 ffmpeg 与转码临时目录配置
+  transcode:
+    ffmpeg-path: ${AL_FFMPEG_PATH:ffmpeg}
+    ffprobe-path: ${AL_FFPROBE_PATH:}
+    tmp-dir: ${AL_TRANSCODE_TMP:}
+  # 图片派生：回填时把存量封面转成 480w WebP
+  image:
+    enabled: ${AL_IMAGE_ENABLED:true}
+    cover-quality: ${AL_IMAGE_COVER_QUALITY:78}
+    avatar-size: ${AL_IMAGE_AVATAR_SIZE:192}
+    max-cover-bytes: ${AL_IMAGE_MAX_COVER:5242880}
+    max-avatar-bytes: ${AL_IMAGE_MAX_AVATAR:2097152}
+    timeout-seconds: ${AL_IMAGE_TIMEOUT:30}
