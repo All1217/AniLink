@@ -1,0 +1,21 @@
+{
+  "code": 200,
+  "message": "成功",
+  "data": {
+    "records": [
+      {
+        "id": 9001,
+        "vid": 1001,
+        "uid": 7,
+        "content": "测试评论",
+        "love": 3,
+        "nickname": "alice",
+        "avatar": "https://example.com/avatar.webp",
+        "replyCount": 2
+      }
+    ],
+    "total": 1,
+    "current": 1,
+    "size": 10
+  }
+}

@@ -42,8 +42,8 @@ public interface UserVideoMapper {
      * 收藏事件幂等 upsert：行不存在则插入，已存在则覆盖收藏标记。
      * 取消收藏只把 collect 置 0，不改写收藏时间。
      */
-    @Insert("insert into user_video (uid, vid, play, love, unlove, coin, collect, collect_time) " +
-            "values (#{uid}, #{vid}, 0, 0, 0, 0, #{collect}, #{collectTime}) " +
+    @Insert("insert into user_video (uid, vid, play, love, unlove, coin, collect, collect_time, play_time) " +
+            "values (#{uid}, #{vid}, 0, 0, 0, 0, #{collect}, #{collectTime}, now()) " +
             "on duplicate key update collect = values(collect), " +
             "collect_time = case when values(collect) = 1 then values(collect_time) else collect_time end")
     void upsertCollect(@Param("uid") Long uid, @Param("vid") Long vid,

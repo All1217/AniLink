@@ -2,19 +2,12 @@ server:
   port: 8040
   address: 0.0.0.0
 
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/video?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=GMT%2b8
+# Phase 5 分库：AL-admin 不再直连业务库。
+# 用户/视频管理走 AL-user、AL-video 的 /internal/v1/admin/** 内部契约（Feign），
+# 没有 al_admin 业务库，因此这里不再配置 spring.datasource 与 mybatis-plus。
+# 分页响应仍用 mybatis-plus-extension 的 IPage/Page 包装，纯类库，不触发 DataSource 自动配置。
 
-#用于打印框架生成的sql语句，便于调试
-mybatis-plus:
-  configuration:
-    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
-logging:
-  level:
-    com.video.admin.mapper: debug
-
-# 管理端要浏览/清理对象存储、回填封面缩略图，复用与 AL-web 相同的 MinIO 桶
+# 管理端要浏览/清理对象存储、回填封面缩略图，复用与 AL-video 相同的 MinIO 桶
 video:
   minio:
     endpoint: ${MINIO_ENDPOINT}

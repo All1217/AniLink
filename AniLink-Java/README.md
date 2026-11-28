@@ -82,7 +82,7 @@ MySQL / Redis / RabbitMQ / MinIO / Nacos 由各服务共享
 
 ### 4.1 基础中间件
 
-- MySQL 8.x：执行 `../db/schema.sql` 初始化 `video`、`al_remark`、`al_communication`；或手动建库
+- MySQL 8.x：新环境按 `../db/schema/` 分库脚本初始化（`al_user` / `al_video` / `al_playback` / `al_comment` / `al_danmaku` / `al_social` / `al_communication` / `al_remark`）；已有 `video` 单库按 `../db/migrations/phase5/README.md` 执行分库迁移（停机窗口 + 全库快照 + 同实例 `RENAME TABLE`）
 - Redis 6.x+：使用 5 号库
 - RabbitMQ：vhost `AniLink`
 - MinIO：桶 `avatar`、`video`、`video-cover`
@@ -252,23 +252,29 @@ mvn -q -pl AL-datacenter spring-boot:run
 
 ## 8. 数据与存储
 
-表归属（Phase 5 数据库拆分前所有服务共用 `video` 库，但只允许读写自有表）：
+表归属（Phase 5 分库：每张表只有一个属主服务，一个服务只连自己的库）：
 
-| 服务 | 自有表 |
-| --- | --- |
-| `AL-user` | `user`、`user_stats`、`user_tag` |
-| `AL-video` | `video`、`video_stats`、`user_video` |
-| `AL-playback` | `bh_video` |
-| `AL-comment` | `comment` |
-| `AL-danmaku` | `danmu`、`sub_danmu` |
-| `AL-social` | `follow`、`favorite`、`favorite_video` |
-| `AL-communication` | `chat`、`chat_message` |
+| 服务 | 目标库 | 自有表 |
+| --- | --- | --- |
+| `AL-user` | `al_user` | `user`、`user_stats`、`user_tag` |
+| `AL-video` | `al_video` | `video`、`video_stats`、`user_video`、`category` |
+| `AL-playback` | `al_playback` | `bh_video` |
+| `AL-comment` | `al_comment` | `comment` |
+| `AL-danmaku` | `al_danmaku` | `danmu`、`sub_danmu` |
+| `AL-social` | `al_social` | `follow`、`favorite`、`favorite_video` |
+| `AL-communication` | `al_communication` | `chat`、`chat_message` |
+| `AL-remark` | `al_remark` | 无（Redis + MQ） |
+| `AL-admin` | 无业务库 | 走 `AL-user` / `AL-video` 的 `/internal/v1/admin/**` 管理契约 |
+| `AL-datacenter` | 无业务库 | BFF，聚合走 Feign |
+
+**分库脚本已就绪，但需要人工在停机窗口执行**：各服务 `application.yml` 的 `spring.datasource.url` 已指向自己的库，
+必须与 `../db/migrations/phase5/` 的脚本（快照 → 建库 → `RENAME TABLE` → 验证 → 回滚预案）在**同一停机窗口**内发布，
+否则服务会因目标库/表不存在而启动失败。迁移方案、验证 SQL 与回滚步骤见 [db/migrations/phase5/README.md](../db/migrations/phase5/README.md)。
 
 | 类型 | 位置 | 用途 |
 | --- | --- | --- |
-| MySQL | `video` | 用户、视频、评论、弹幕、收藏、历史、聊天等（各服务只写自有表） |
+| MySQL | 各服务自有库（见上表） | 用户、视频、评论、弹幕、收藏、历史、聊天等 |
 | MySQL | `al_remark` | AL-remark（当前无实际表读写） |
-| MySQL | `al_communication` | AL-communication（当前无实际表读写） |
 | Redis | 5 号库 | 登录态/黑名单、验证码、点赞集合与计数、播放进度缓存、热搜 |
 | RabbitMQ | vhost `AniLink` | 点赞计数、收藏事件、异常消息、用户画像 |
 | MinIO | `avatar` / `video` / `video-cover` | 头像、视频原文件与 HLS、封面 |
@@ -298,7 +304,10 @@ mvn test
 
 - Phase 0–4 已完成：公共模块拆分、网关身份透传与路由外置、9 个业务服务 + 管理端拆分、`AL-web` 删除。
 - `/internal/v1/**` 只用于服务间 Feign，网关不暴露；新增跨域数据一律走内部契约 + 批量接口，禁止跨域 JOIN。
-- MySQL 仍在 `video` 单库，数据库按服务拆分是 Phase 5 的独立变更。
+- MySQL 已按服务分库（Phase 5）：各服务 `application.yml` 指向自己的库，跨域数据只走内部契约；库名/表归属、账号模板与迁移 runbook 见 `../db/README.md` 与 `../db/migrations/phase5/README.md`。
+- 分库脚本（`db/migrations/phase5/`）需在停机窗口人工执行：0 号快照 → 建库 → `RENAME TABLE` → 验证 → 回滚预案；本仓库不自动执行 DDL/DML。
+- 画像引擎仍按单库连接读多域表（`user_tag` / `user_video` / `video` / `danmu`），分库后需要单独的跨库改造（Phase 5-C），在此之前不要启动引擎写入画像标签。
+- 分库配置已先行：迁移执行前，需要创建 DataSource 的 `@SpringBootTest` 全上下文用例（如 `AL-video` 的 `MinioTest`）会报 `Unknown database 'al_video'`，属预期现象；可用 `SPRING_DATASOURCE_URL` 临时指回旧 `video` 库再测，最终以迁移后 `mvn test` 全绿为准。
 - `AL-video` 的转码队列是进程内单实例模型，**不要同时启动多个 AL-video 实例**；投稿只能由 `AL-video` 处理。
 - 对外只暴露网关 8090；业务服务端口（8021–8040）仅供本机/内网开发与调试。
 - 升级依赖版本、改 Nacos 共享配置或公共口令前先确认影响面。
@@ -318,6 +327,7 @@ mvn test
 ## 13. 相关文档
 
 - 问题日志：[docs/问题日志.md](docs/问题日志.md)
+- 数据库初始化与分库：[../db/README.md](../db/README.md)、分库前基线 [../db/schema.sql](../db/schema.sql)、分库后建表 [../db/schema/](../db/schema/)、迁移 runbook [../db/migrations/phase5/README.md](../db/migrations/phase5/README.md)
 - 架构与设计图：[docs/Assets/AniLink-cloud/](docs/Assets/AniLink-cloud/)
 - 微服务拆分设计：[../docs/superpowers/specs/2026-11-24-backend-service-split-design.md](../docs/superpowers/specs/2026-11-24-backend-service-split-design.md)
 - 拆分变更与任务：[../openspec/changes/refactor-backend-service-split/](../openspec/changes/refactor-backend-service-split/)

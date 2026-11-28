@@ -1,0 +1,12 @@
+target/
+.idea/
+*.iml
+*.class
+*.jar
+*.log
+*.swp
+.settings/
+.project
+.classpath
+.env
+*.env.local

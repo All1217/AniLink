@@ -143,4 +143,4 @@ logs/
 temp_accounts.txt
 
 # 本地MCP
-mcp-server-database
+mcp-server-databasedb/temp/

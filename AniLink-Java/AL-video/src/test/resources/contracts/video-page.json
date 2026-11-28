@@ -1,0 +1,20 @@
+{
+  "code": 200,
+  "message": "成功",
+  "data": {
+    "records": [
+      {
+        "vid": 1001,
+        "uid": 7,
+        "title": "测试视频",
+        "coverUrl": "https://example.com/cover.webp",
+        "coverThumbUrl": "https://example.com/cover_thumb.webp",
+        "play": 123,
+        "collect": 9
+      }
+    ],
+    "total": 1,
+    "current": 1,
+    "size": 10
+  }
+}

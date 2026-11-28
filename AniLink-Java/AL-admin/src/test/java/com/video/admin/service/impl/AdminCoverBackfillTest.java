@@ -1,11 +1,11 @@
 package com.video.admin.service.impl;
 
-import com.video.common.properties.MinIOProperties;
-import com.video.admin.mapper.AdminCoverBackfillMapper;
-import com.video.admin.mapper.AdminStorageRefMapper;
-import com.video.admin.vo.AdminBackfillResultVo;
-import com.video.admin.vo.AdminCoverBackfillVo;
 import com.video.admin.service.ImageProcessService;
+import com.video.admin.vo.AdminBackfillResultVo;
+import com.video.api.user.AdminUserInternalClient;
+import com.video.api.video.AdminVideoInternalClient;
+import com.video.api.video.dto.AdminCoverThumbVo;
+import com.video.common.properties.MinIOProperties;
 import io.minio.MinioClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,7 +26,7 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** 存量封面缩略图回填：成功写回、外链跳过、幂等。 */
+/** 存量封面缩略图回填：成功写回、外链跳过、幂等；稿件读写走视频域内部契约。 */
 @ExtendWith(MockitoExtension.class)
 class AdminCoverBackfillTest {
 
@@ -35,9 +35,9 @@ class AdminCoverBackfillTest {
     @Mock
     private MinIOProperties minIOProperties;
     @Mock
-    private AdminStorageRefMapper refMapper;
+    private AdminVideoInternalClient adminVideoClient;
     @Mock
-    private AdminCoverBackfillMapper backfillMapper;
+    private AdminUserInternalClient adminUserClient;
     @Mock
     private ImageProcessService imageProcessService;
     @InjectMocks
@@ -50,10 +50,10 @@ class AdminCoverBackfillTest {
 
     @Test
     void writesThumbForOwnCover() throws Exception {
-        AdminCoverBackfillVo row = row(1L, "http://localhost:9000/video-cover/a.jpg");
-        when(backfillMapper.listMissingThumbs(0L, 50)).thenReturn(List.of(row));
+        AdminCoverThumbVo row = row(1L, "http://localhost:9000/video-cover/a.jpg");
+        when(adminVideoClient.missingThumbs(0L, 50)).thenReturn(List.of(row));
         when(imageProcessService.coverThumb(any(), anyString())).thenReturn(new byte[]{1});
-        when(backfillMapper.updateThumb(1L, "http://localhost:9000/video-cover/a_480.webp")).thenReturn(1);
+        when(adminVideoClient.updateThumb(1L, "http://localhost:9000/video-cover/a_480.webp")).thenReturn(1);
 
         AdminStorageServiceImpl spyService = spy(service);
         doReturn(new byte[]{9}).when(spyService).readObject("video-cover", "a.jpg");
@@ -69,7 +69,7 @@ class AdminCoverBackfillTest {
 
     @Test
     void skipsExternalCover() throws Exception {
-        when(backfillMapper.listMissingThumbs(0L, 50))
+        when(adminVideoClient.missingThumbs(0L, 50))
                 .thenReturn(List.of(row(2L, "https://cdn.example.com/a.jpg")));
 
         AdminBackfillResultVo result = service.backfillCoverThumbs(9L);
@@ -78,21 +78,22 @@ class AdminCoverBackfillTest {
         assertEquals(1, result.getSkipped());
         assertEquals(0, result.getUpdated());
         verify(minioClient, never()).putObject(any());
+        verify(adminVideoClient, never()).updateThumb(any(), anyString());
     }
 
     @Test
     void idempotentWhenNoMissingCovers() {
-        when(backfillMapper.listMissingThumbs(0L, 50)).thenReturn(List.of());
+        when(adminVideoClient.missingThumbs(0L, 50)).thenReturn(List.of());
 
         AdminBackfillResultVo result = service.backfillCoverThumbs(9L);
 
         assertEquals(0, result.getScanned());
         assertEquals(0, result.getUpdated());
-        verify(backfillMapper, never()).updateThumb(any(), anyString());
+        verify(adminVideoClient, never()).updateThumb(any(), anyString());
     }
 
-    private AdminCoverBackfillVo row(Long vid, String coverUrl) {
-        AdminCoverBackfillVo vo = new AdminCoverBackfillVo();
+    private AdminCoverThumbVo row(Long vid, String coverUrl) {
+        AdminCoverThumbVo vo = new AdminCoverThumbVo();
         vo.setVid(vid);
         vo.setCoverUrl(coverUrl);
         return vo;

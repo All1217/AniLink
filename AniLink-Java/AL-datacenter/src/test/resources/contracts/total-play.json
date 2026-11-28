@@ -1,0 +1,10 @@
+{
+  "code": 200,
+  "message": "成功",
+  "data": {
+    "mainRes": [100, 120],
+    "subRes": [5],
+    "lastMainRes": [90],
+    "lastSubRes": [4]
+  }
+}

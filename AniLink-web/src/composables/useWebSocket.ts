@@ -1,8 +1,24 @@
 import { onBeforeUnmount, ref } from 'vue'
 
-const WS_BASE = import.meta.env.VITE_WS_BASE ?? 'ws://localhost:8024'
+/** 各业务 WS 服务的默认地址：拆分后 /video 归 al-danmaku（8030），/chat 归 al-communication（8024）。 */
+const WS_DEFAULT_BASE: Record<string, string> = {
+  '/video': 'ws://localhost:8030',
+  '/chat': 'ws://localhost:8024',
+}
+/** 未匹配到业务前缀时的兜底地址，保持旧默认值。 */
+const WS_FALLBACK_BASE = 'ws://localhost:8024'
 const MAX_RETRY = 10
 const HEARTBEAT_INTERVAL = 5000
+
+/**
+ * 按 path 解析 WS 服务地址：VITE_WS_BASE 存在时整体覆盖（便于联调/部署），
+ * 否则按业务前缀选择默认端口，避免所有房间都连到同一个服务。
+ */
+function resolveWsBase(path: string): string {
+  if (import.meta.env.VITE_WS_BASE) return import.meta.env.VITE_WS_BASE
+  const prefix = Object.keys(WS_DEFAULT_BASE).find((item) => path.startsWith(item))
+  return prefix ? WS_DEFAULT_BASE[prefix] : WS_FALLBACK_BASE
+}
 
 interface Options<T> {
   /** 收到消息时回调（已 JSON.parse） */
@@ -41,7 +57,7 @@ export function useWebSocket<T = unknown>(path: string, options: Options<T> = {}
   function connect() {
     manualClosed = false
     socket.value?.close()
-    const ws = new WebSocket(`${WS_BASE}${path}`)
+    const ws = new WebSocket(`${resolveWsBase(path)}${path}`)
     socket.value = ws
 
     ws.onopen = () => {

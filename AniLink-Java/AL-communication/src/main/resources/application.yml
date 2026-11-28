@@ -4,8 +4,9 @@ server:
     uri-encoding: UTF-8
 spring:
   datasource:
-    # chat / chat_message 表当前仍在 video 库；Phase 5 数据库拆分前保持原库，保证聊天记录可读写
-    url: jdbc:mysql://localhost:3306/video?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=GMT%2b8
+    # Phase 5 分库：聊天域只连 al_communication（chat / chat_message）；
+    # 账号、口令、驱动仍由 Nacos 共享配置 shared-mysql.yaml 注入，本地不写口令。
+    url: jdbc:mysql://localhost:3306/al_communication?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=GMT%2b8
 mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl

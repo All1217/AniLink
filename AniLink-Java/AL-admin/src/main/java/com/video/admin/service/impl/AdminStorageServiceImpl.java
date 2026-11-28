@@ -1,20 +1,19 @@
 package com.video.admin.service.impl;
 
+import com.video.admin.service.AdminStorageService;
+import com.video.admin.service.ImageProcessService;
+import com.video.admin.util.ImageUrls;
+import com.video.admin.vo.AdminBackfillResultVo;
+import com.video.admin.vo.AdminCleanupResultVo;
+import com.video.admin.vo.AdminObjectPageVo;
+import com.video.admin.vo.AdminObjectVo;
+import com.video.admin.vo.AdminRefVo;
+import com.video.api.user.AdminUserInternalClient;
+import com.video.api.video.AdminVideoInternalClient;
 import com.video.common.constant.MinioConstant;
 import com.video.common.exception.VideoException;
 import com.video.common.properties.MinIOProperties;
 import com.video.common.result.ResultCodeEnum;
-import com.video.admin.mapper.AdminCoverBackfillMapper;
-import com.video.admin.mapper.AdminStorageRefMapper;
-import com.video.admin.service.AdminStorageService;
-import com.video.admin.vo.AdminBackfillResultVo;
-import com.video.admin.vo.AdminCleanupResultVo;
-import com.video.admin.vo.AdminCoverBackfillVo;
-import com.video.admin.vo.AdminObjectPageVo;
-import com.video.admin.vo.AdminObjectVo;
-import com.video.admin.vo.AdminRefVo;
-import com.video.admin.service.ImageProcessService;
-import com.video.admin.util.ImageUrls;
 import io.minio.GetObjectArgs;
 import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.ListObjectsArgs;
@@ -37,7 +36,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-/** 对象存储管理：浏览、预签名预览、带引用检查的真实删除。 */
+/**
+ * 对象存储管理：浏览、预签名预览、带引用检查的真实删除。
+ * Phase 5 起业务引用检查不再查库，改为调用用户域/视频域的管理契约。
+ */
 @Slf4j
 @Service
 public class AdminStorageServiceImpl implements AdminStorageService {
@@ -54,17 +56,18 @@ public class AdminStorageServiceImpl implements AdminStorageService {
 
     private final MinioClient minioClient;
     private final MinIOProperties minIOProperties;
-    private final AdminStorageRefMapper refMapper;
-    private final AdminCoverBackfillMapper backfillMapper;
+    private final AdminVideoInternalClient adminVideoClient;
+    private final AdminUserInternalClient adminUserClient;
     private final ImageProcessService imageProcessService;
 
     public AdminStorageServiceImpl(MinioClient minioClient, MinIOProperties minIOProperties,
-                                   AdminStorageRefMapper refMapper, AdminCoverBackfillMapper backfillMapper,
+                                   AdminVideoInternalClient adminVideoClient,
+                                   AdminUserInternalClient adminUserClient,
                                    ImageProcessService imageProcessService) {
         this.minioClient = minioClient;
         this.minIOProperties = minIOProperties;
-        this.refMapper = refMapper;
-        this.backfillMapper = backfillMapper;
+        this.adminVideoClient = adminVideoClient;
+        this.adminUserClient = adminUserClient;
         this.imageProcessService = imageProcessService;
     }
 
@@ -204,11 +207,12 @@ public class AdminStorageServiceImpl implements AdminStorageService {
         // 按 vid 游标分批，只处理 cover_thumb_url 为空的稿件，重复触发不会重复生成
         long afterVid = 0L;
         while (true) {
-            List<AdminCoverBackfillVo> batch = backfillMapper.listMissingThumbs(afterVid, BACKFILL_PAGE_SIZE);
-            if (batch.isEmpty()) {
+            List<com.video.api.video.dto.AdminCoverThumbVo> batch =
+                    adminVideoClient.missingThumbs(afterVid, BACKFILL_PAGE_SIZE);
+            if (batch == null || batch.isEmpty()) {
                 break;
             }
-            for (AdminCoverBackfillVo row : batch) {
+            for (com.video.api.video.dto.AdminCoverThumbVo row : batch) {
                 afterVid = row.getVid();
                 result.setScanned(result.getScanned() + 1);
                 String key = videoCoverKey(row.getCoverUrl(), endpoint);
@@ -222,7 +226,7 @@ public class AdminStorageServiceImpl implements AdminStorageService {
                     byte[] source = readObject(MinioConstant.VIDEO_COVER_BUCKET, key);
                     byte[] thumb = imageProcessService.coverThumb(source, extOf(key));
                     putBytes(MinioConstant.VIDEO_COVER_BUCKET, thumbKey, thumb);
-                    if (backfillMapper.updateThumb(row.getVid(), thumbUrl) == 1) {
+                    if (adminVideoClient.updateThumb(row.getVid(), thumbUrl) == 1) {
                         result.setUpdated(result.getUpdated() + 1);
                     } else {
                         result.setSkipped(result.getSkipped() + 1);
@@ -305,11 +309,13 @@ public class AdminStorageServiceImpl implements AdminStorageService {
         }
         String url = endpoint.replaceAll("/+$", "") + "/" + bucket + "/" + key;
         Map<String, AdminRefVo> refs = new LinkedHashMap<>();
-        for (AdminRefVo ref : refMapper.findVideoRefs(url)) {
-            refs.putIfAbsent(refKey(ref), ref);
+        for (com.video.api.video.dto.AdminVideoRefVo ref : adminVideoClient.refs(url)) {
+            AdminRefVo mapped = toRefVo(ref);
+            refs.putIfAbsent(refKey(mapped), mapped);
         }
-        for (AdminRefVo ref : refMapper.findUserRefs(url)) {
-            refs.putIfAbsent(refKey(ref), ref);
+        for (com.video.api.user.dto.AdminUserRefVo ref : adminUserClient.refs(url)) {
+            AdminRefVo mapped = toRefVo(ref);
+            refs.putIfAbsent(refKey(mapped), mapped);
         }
         if (MinioConstant.VIDEO_BUCKET.equals(bucket) && key.startsWith(MinioConstant.HLS_PREFIX)) {
             String[] parts = key.split("/");
@@ -319,7 +325,7 @@ public class AdminStorageServiceImpl implements AdminStorageService {
                 if (hlsCache.containsKey(vid)) {
                     ref = hlsCache.get(vid);
                 } else {
-                    ref = refMapper.findHlsRef(vid);
+                    ref = toRefVo(adminVideoClient.hlsRef(vid));
                     hlsCache.put(vid, ref);
                 }
                 if (ref != null) {
@@ -328,6 +334,32 @@ public class AdminStorageServiceImpl implements AdminStorageService {
             }
         }
         return new ArrayList<>(refs.values());
+    }
+
+    /** 视频域引用 DTO → 管理端 VO */
+    private AdminRefVo toRefVo(com.video.api.video.dto.AdminVideoRefVo source) {
+        if (source == null) {
+            return null;
+        }
+        AdminRefVo ref = new AdminRefVo();
+        ref.setType(source.getType());
+        ref.setId(source.getId());
+        ref.setName(source.getName());
+        ref.setField(source.getField());
+        return ref;
+    }
+
+    /** 用户域引用 DTO → 管理端 VO */
+    private AdminRefVo toRefVo(com.video.api.user.dto.AdminUserRefVo source) {
+        if (source == null) {
+            return null;
+        }
+        AdminRefVo ref = new AdminRefVo();
+        ref.setType(source.getType());
+        ref.setId(source.getId());
+        ref.setName(source.getName());
+        ref.setField(source.getField());
+        return ref;
     }
 
     private String refKey(AdminRefVo ref) {

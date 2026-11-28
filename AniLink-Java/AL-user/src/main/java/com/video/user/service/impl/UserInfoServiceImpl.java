@@ -164,23 +164,40 @@ public class UserInfoServiceImpl extends ServiceImpl<UserInfoMapper, UserInfo> i
         uiMapper.updateUserStats(userStats);
     }
 
+    /**
+     * 更新用户资料：user 表（昵称/头像/性别/签名）与 user_stats 表（学校/生日）分开更新。
+     * 两个动态 SET 都必须保证至少有一个字段，否则会生成 `update user where uid = ?`
+     * 这类空 SET 的非法 SQL（缺陷 D1：只改昵称时接口必然 201）。
+     */
     @Override
     @Transactional
     public void updateUserInfo(UserInfoQueryVo queryVo) {
-        UserInfo userInfo = new UserInfo();
-        userInfo.setUid(queryVo.getUid());
-        userInfo.setAvatar(queryVo.getAvatar());
-        userInfo.setNickname(queryVo.getNickname());
-        userInfo.setGender(queryVo.getGender());
-        userInfo.setDescription(queryVo.getDescription());
-        uiMapper.updateUserInfo(userInfo);
+        // 1.user 表字段：至少一个非空才执行，避免空 SET
+        if (hasUserTableField(queryVo)) {
+            UserInfo userInfo = new UserInfo();
+            userInfo.setUid(queryVo.getUid());
+            userInfo.setAvatar(queryVo.getAvatar());
+            userInfo.setNickname(queryVo.getNickname());
+            userInfo.setGender(queryVo.getGender());
+            userInfo.setDescription(queryVo.getDescription());
+            uiMapper.updateUserInfo(userInfo);
+        }
 
-        UserStats userStats = new UserStats();
-        userStats.setUid(queryVo.getUid());
-        userStats.setSchool(queryVo.getSchool());
-        userStats.setBirthDate(queryVo.getBirthDate());
-        log.info("impl userStats: {}", userStats);
-        uiMapper.updateUserStats(userStats);
+        // 2.user_stats 表字段：school/birthDate 至少一个非空才执行，只改昵称等 user 表字段时不再触发
+        if (queryVo.getSchool() != null || queryVo.getBirthDate() != null) {
+            UserStats userStats = new UserStats();
+            userStats.setUid(queryVo.getUid());
+            userStats.setSchool(queryVo.getSchool());
+            userStats.setBirthDate(queryVo.getBirthDate());
+            log.info("impl userStats: {}", userStats);
+            uiMapper.updateUserStats(userStats);
+        }
+    }
+
+    /** user 表可更新字段（昵称/头像/性别/签名）是否至少有一个非空 */
+    private boolean hasUserTableField(UserInfoQueryVo queryVo) {
+        return queryVo.getNickname() != null || queryVo.getAvatar() != null
+                || queryVo.getGender() != null || queryVo.getDescription() != null;
     }
 
     @Override

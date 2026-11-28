@@ -2,6 +2,8 @@ package com.video.video.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.video.api.video.dto.AdminCoverThumbVo;
+import com.video.api.video.dto.AdminVideoRefVo;
 import com.video.api.video.dto.UserVideoStatsVo;
 import com.video.model.entity.UserVideo;
 import com.video.model.entity.Video;
@@ -15,6 +17,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
+import java.util.Date;
 import java.util.List;
 
 public interface VideoMapper extends BaseMapper<Video> {
@@ -54,4 +57,37 @@ public interface VideoMapper extends BaseMapper<Video> {
      * 稿件归属看 video.uid；user_video.uid 是观看者（跨域用户 id），不能当作者过滤。
      */
     UserVideoStatsVo userVideoStats(@Param("uid") Long uid);
+
+    /** 管理端：按完整 URL 查稿件引用（video_url / cover_url / cover_thumb_url / hls_url） */
+    @Select("select vid as id, title as name, 'video' as type, " +
+            "case when video_url = #{url} then 'video_url' " +
+            "when cover_url = #{url} then 'cover_url' " +
+            "when cover_thumb_url = #{url} then 'cover_thumb_url' else 'hls_url' end as field " +
+            "from video where video_url = #{url} or cover_url = #{url} " +
+            "or cover_thumb_url = #{url} or hls_url = #{url} limit 20")
+    List<AdminVideoRefVo> findVideoRefs(@Param("url") String url);
+
+    /** 管理端：HLS 目录引用，该 vid 仍有 hls_url 就视为整个目录被引用 */
+    @Select("select vid as id, title as name, 'video' as type, 'hls_url' as field " +
+            "from video where vid = #{vid} and hls_url is not null and hls_url <> '' limit 1")
+    AdminVideoRefVo findHlsRef(@Param("vid") Long vid);
+
+    /** 管理端：按 vid 游标取缺少封面缩略图的稿件，只查空值天然幂等 */
+    @Select("select vid, cover_url from video " +
+            "where cover_thumb_url is null and cover_url is not null and cover_url <> '' " +
+            "and vid > #{afterVid} order by vid limit #{limit}")
+    List<AdminCoverThumbVo> listMissingThumbs(@Param("afterVid") long afterVid, @Param("limit") int limit);
+
+    /** 管理端：写回封面缩略图，空值判断避免并发回填互相覆盖 */
+    @Update("update video set cover_thumb_url = #{thumbUrl} where vid = #{vid} and cover_thumb_url is null")
+    int updateCoverThumb(@Param("vid") Long vid, @Param("thumbUrl") String thumbUrl);
+
+    /** 管理端：更新审核/删除状态；下架时写入 delete_date，其余清空 */
+    @Update("update video set status = #{status}, delete_date = #{deleteDate} where vid = #{vid}")
+    int updateAdminStatus(@Param("vid") Long vid, @Param("status") Integer status,
+                          @Param("deleteDate") Date deleteDate);
+
+    /** 管理端：更新公开/仅自己可见 */
+    @Update("update video set visible = #{visible} where vid = #{vid}")
+    int updateAdminVisible(@Param("vid") Long vid, @Param("visible") Integer visible);
 }

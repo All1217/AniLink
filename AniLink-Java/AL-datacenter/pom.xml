@@ -39,6 +39,15 @@
             <artifactId>AL-api</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
+        <!-- 缺陷 D2：Feign 反序列化复用 AL-api 的 Danmu（带 @TableField），该注解的 jdbcType
+             属性类型是 org.apache.ibatis.type.JdbcType；mybatis-plus-annotation 对 mybatis 为
+             optional 依赖不会传递，故显式补 mybatis（仅注解/枚举类，不引入 starter，不启用 DataSource）。
+             版本与 MyBatis-Plus 3.5.3.1 自带的一致，不构成依赖升级。 -->
+        <dependency>
+            <groupId>org.mybatis</groupId>
+            <artifactId>mybatis</artifactId>
+            <version>3.5.10</version>
+        </dependency>
         <!-- 数据聚合来源：视频日汇总、用户标签/摘要、社交粉丝 id 集合 -->
         <dependency>
             <groupId>com.video</groupId>

@@ -25,7 +25,7 @@ AniLink 是一个仿 B 站（bilibili）的视频社区全栈项目，原为三�
 | `AniLink-web/` | 新前端（Vite 6 + Vue 3.5 + SCSS，dev 5173），重写中，进度见 `docs/AniLink-web重构计划.md` |
 | `AniLink-admin/` | 独立管理端（Vite 6 + Vue 3.5 + Element Plus，dev 5174），入口 `/main/admin/**`，仅管理员可登录 |
 | `AniLink-AlgorithmEngine/` | 用户画像与推荐引擎（Flask），入口 `src/main.py` |
-| `db/` | 跨服务 MySQL 初始化 schema（`video` / `al_remark` / `al_communication`） |
+| `db/` | MySQL 初始化与分库：`schema.sql` 为分库前 `video` 单库基线，`schema/` 为 Phase 5 分库目标（`al_user` 等 7 个业务库 + `al_remark`），`migrations/phase5/` 为已有库的分库迁移 runbook（快照 / 建库 / RENAME / 授权 / 回滚） |
 | `mcp-server-database/` | 本地/内网库元数据与 SQL MCP（Spring AI Streamable HTTP，`http://localhost:8102/mcp`）；**已 gitignore，不入库** |
 | `docs/` | 根级说明与操作日志（`operations-log.md`） |
 | `.dsh-bundles/mcp-database/` | DSH 的配置型插件，把上面的 MCP 接进 DeepSeek Harness |
@@ -125,7 +125,7 @@ cd mcp-server-database
 
 - Nacos 地址、共享配置（`shared-spring.yaml` / `shared-mysql.yaml` / `shared-redis.yaml` / `shared-mq.yaml`）写在各服务 `bootstrap.yml`；库账号与口令在 Nacos 的共享配置里，不写进本地 `application.yml`。
 - `AL-video` 与 `AL-admin` 的 MinIO 走环境变量 `MINIO_ENDPOINT` / `MINIO_ACCESSKEY` / `MINIO_SECRETKEY`；引擎的大模型 key 走 `DASHSCOPE_API_KEY`。
-- 库名：`video`（al-user / al-video / al-playback / al-comment / al-danmaku / al-social / al-admin 共享，Phase 5 数据库拆分前保持原库）、`al_remark`（AL-remark）、`al_communication`（AL-communication）；Redis 用 5 号库；RabbitMQ vhost `AniLink`。
+- 库名（Phase 5 分库）：每个服务一个库，各服务 `application.yml` 的 `spring.datasource.url` 已指向自己的库——`al_user`（AL-user：user/user_stats/user_tag）、`al_video`（AL-video：video/video_stats/user_video/category）、`al_playback`（AL-playback：bh_video）、`al_comment`（AL-comment：comment）、`al_danmaku`（AL-danmaku：danmu/sub_danmu）、`al_social`（AL-social：follow/favorite/favorite_video）、`al_communication`（AL-communication：chat/chat_message）、`al_remark`（AL-remark，空库）；AL-admin 走内部契约、AL-datacenter 为 BFF，均不需要业务库。数据库账号/口令仍由 Nacos `shared-mysql.yaml` 注入（目标是最小权限 per-service 账号，模板见 `db/migrations/phase5/03-grants.sql`）。分库脚本已就绪但**需人工在停机窗口执行**，见 [db/migrations/phase5/README.md](db/migrations/phase5/README.md)；配置已指向新库，**迁移与配置发布必须在同一停机窗口内完成**，未迁移前直接启动会因目标库/表不存在而失败。Redis 用 5 号库；RabbitMQ vhost `AniLink`。
 - 未经确认不要改公共配置、Nacos 共享配置、`.env`，也不要升级中间件版本。
 
 ## 硬性约束
@@ -141,7 +141,7 @@ cd mcp-server-database
 ## 参考文档
 
 - 各子项目 README 与部署前提：`AniLink-Java/README.md`、`AniLink-Vue3/README.md`、`AniLink-AlgorithmEngine/README.md`、`mcp-server-database/README.md`、`AniLink-web/README.md`、`AniLink-admin/README.md`
-- 数据库初始化：[db/README.md](db/README.md)、[db/schema.sql](db/schema.sql)
+- 数据库初始化与分库：[db/README.md](db/README.md)、分库前基线 [db/schema.sql](db/schema.sql)、分库后建表 [db/schema/](db/schema/)、分库迁移 runbook [db/migrations/phase5/README.md](db/migrations/phase5/README.md)
 - 前端重构方案与进度：`docs/AniLink-web重构计划.md`
 - 问题日志与备忘录：`AniLink-Java/docs/问题日志.md`、`AniLink-AlgorithmEngine/Assets/docs/问题日志.md`、`AniLink-AlgorithmEngine/Assets/docs/备忘录.md`
 - 架构与设计图（drawio/PNG）：`AniLink-Java/docs/Assets/AniLink-cloud/`（系统整体架构、模块拆分、E-R 图、标签体系、时序图等）

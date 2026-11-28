@@ -1,0 +1,19 @@
+{
+  "code": 200,
+  "message": "成功",
+  "data": {
+    "records": [
+      {
+        "fid": 301,
+        "uid": 7,
+        "type": 0,
+        "visible": 1,
+        "title": "默认收藏夹",
+        "count": 12
+      }
+    ],
+    "total": 1,
+    "current": 1,
+    "size": 10
+  }
+}

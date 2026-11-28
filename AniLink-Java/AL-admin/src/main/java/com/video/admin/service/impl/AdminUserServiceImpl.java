@@ -2,24 +2,28 @@ package com.video.admin.service.impl;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.video.common.exception.VideoException;
-import com.video.common.result.ResultCodeEnum;
-import com.video.common.utils.PasswordUtil;
-import com.video.model.entity.UserInfo;
-import com.video.admin.mapper.AdminUserMapper;
 import com.video.admin.service.AdminUserService;
 import com.video.admin.vo.AdminResetPasswordVo;
 import com.video.admin.vo.AdminUserQueryVo;
 import com.video.admin.vo.AdminUserVo;
+import com.video.api.user.AdminUserInternalClient;
 import com.video.api.user.UserInternalClient;
+import com.video.api.user.dto.AdminPasswordResetVo;
+import com.video.api.user.dto.AdminUserPageVo;
 import com.video.api.user.dto.UserProfileVo;
-import org.springframework.beans.factory.ObjectProvider;
+import com.video.common.exception.VideoException;
+import com.video.common.result.ResultCodeEnum;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
+import java.util.List;
 
-/** 用户管理：封禁/解封、超管角色调整与密码重置。 */
+/**
+ * 用户管理：封禁/解封、超管角色调整与密码重置。
+ * Phase 5 起用户表归 al-user，全部读写经 AdminUserInternalClient，管理端不再直连 user 表。
+ */
 @Slf4j
 @Service
 public class AdminUserServiceImpl implements AdminUserService {
@@ -30,12 +34,12 @@ public class AdminUserServiceImpl implements AdminUserService {
     private static final String ALL = UPPER + LOWER + DIGIT;
     private static final SecureRandom RANDOM = new SecureRandom();
 
-    private final AdminUserMapper adminUserMapper;
+    private final AdminUserInternalClient adminUserClient;
     private final ObjectProvider<UserInternalClient> clientProvider;
 
-    public AdminUserServiceImpl(AdminUserMapper adminUserMapper,
+    public AdminUserServiceImpl(AdminUserInternalClient adminUserClient,
                                 ObjectProvider<UserInternalClient> clientProvider) {
-        this.adminUserMapper = adminUserMapper;
+        this.adminUserClient = adminUserClient;
         this.clientProvider = clientProvider;
     }
 
@@ -49,16 +53,27 @@ public class AdminUserServiceImpl implements AdminUserService {
         }
     }
 
+    /** 拉取目标用户详情，不存在返回 null */
+    private com.video.api.user.dto.AdminUserVo remoteUser(Long uid) {
+        return adminUserClient.detail(uid);
+    }
+
     @Override
     public IPage<AdminUserVo> page(AdminUserQueryVo query) {
         long current = Math.max(1, query.getCurrent());
         long size = Math.min(200, Math.max(1, query.getSize()));
-        return adminUserMapper.pageAdmin(new Page<>(current, size), query);
+        AdminUserPageVo remote = adminUserClient.page(current, size,
+                query.getKeyword(), query.getStatus(), query.getRole());
+        Page<AdminUserVo> page = new Page<>(remote.getCurrent(), remote.getSize(), remote.getTotal());
+        List<AdminUserVo> records = remote.getRecords() == null ? List.of()
+                : remote.getRecords().stream().map(this::toVo).toList();
+        page.setRecords(records);
+        return page;
     }
 
     @Override
     public AdminUserVo detail(Long uid) {
-        AdminUserVo vo = adminUserMapper.getAdminDetail(uid);
+        AdminUserVo vo = toVo(remoteUser(uid));
         if (vo == null) {
             throw new VideoException(404, "用户不存在");
         }
@@ -73,10 +88,10 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (operatorUid.equals(uid)) {
             throw new VideoException(ResultCodeEnum.ADMIN_ACCESS_FORBIDDEN.getCode(), "不能封禁自己");
         }
-        if (adminUserMapper.getAdminDetail(uid) == null) {
+        if (remoteUser(uid) == null) {
             throw new VideoException(404, "用户不存在");
         }
-        adminUserMapper.updateStatus(uid, status);
+        adminUserClient.updateStatus(uid, status);
         log.info("admin action operator={} action=user.status uid={} to={}",
                 operatorUid, uid, status);
     }
@@ -93,10 +108,10 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (operator == null || operator.getRole() == null || operator.getRole() != 2) {
             throw new VideoException(ResultCodeEnum.ADMIN_ACCESS_FORBIDDEN);
         }
-        if (adminUserMapper.getAdminDetail(uid) == null) {
+        if (remoteUser(uid) == null) {
             throw new VideoException(404, "用户不存在");
         }
-        adminUserMapper.updateRole(uid, role);
+        adminUserClient.updateRole(uid, role);
         log.info("admin action operator={} action=user.role uid={} to={}",
                 operatorUid, uid, role);
     }
@@ -110,7 +125,7 @@ public class AdminUserServiceImpl implements AdminUserService {
         if (operator == null || operator.getRole() == null || operator.getRole() < 1) {
             throw new VideoException(ResultCodeEnum.ADMIN_ACCESS_FORBIDDEN);
         }
-        AdminUserVo target = adminUserMapper.getAdminDetail(uid);
+        com.video.api.user.dto.AdminUserVo target = remoteUser(uid);
         if (target == null) {
             throw new VideoException(404, "用户不存在");
         }
@@ -118,15 +133,12 @@ public class AdminUserServiceImpl implements AdminUserService {
             throw new VideoException(ResultCodeEnum.ADMIN_ACCESS_FORBIDDEN.getCode(),
                     "只有超级管理员可以重置管理员密码");
         }
+        // 哈希与会话吊销都在用户域完成，这里只负责生成临时密码并透传
         String tempPassword = generateTempPassword();
-        if (adminUserMapper.updatePassword(uid, PasswordUtil.encode(tempPassword)) != 1) {
+        AdminPasswordResetVo body = new AdminPasswordResetVo();
+        body.setPassword(tempPassword);
+        if (adminUserClient.resetPassword(uid, body) != 1) {
             throw new VideoException(ResultCodeEnum.APP_SERVER_ERROR.getCode(), "重置密码失败");
-        }
-        try {
-            clientProvider.getObject().revokeSessions(uid);
-        } catch (Exception e) {
-            // 密码已经更新成功，会话吊销失败只记录，避免临时密码无法返回
-            log.warn("重置密码后吊销用户 {} 会话失败", uid, e);
         }
         log.info("admin action operator={} action=user.password.reset uid={}", operatorUid, uid);
         AdminResetPasswordVo result = new AdminResetPasswordVo();
@@ -148,5 +160,21 @@ public class AdminUserServiceImpl implements AdminUserService {
 
     private char pick(String chars) {
         return chars.charAt(RANDOM.nextInt(chars.length()));
+    }
+
+    /** 用户域契约 DTO → 管理端对外 VO，字段保持一致 */
+    private AdminUserVo toVo(com.video.api.user.dto.AdminUserVo source) {
+        if (source == null) {
+            return null;
+        }
+        AdminUserVo vo = new AdminUserVo();
+        vo.setUid(source.getUid());
+        vo.setUsername(source.getUsername());
+        vo.setNickname(source.getNickname());
+        vo.setAvatar(source.getAvatar());
+        vo.setStatus(source.getStatus());
+        vo.setRole(source.getRole());
+        vo.setCreateDate(source.getCreateDate());
+        return vo;
     }
 }

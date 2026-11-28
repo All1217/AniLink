@@ -1,59 +1,98 @@
-# 数据库初始化
+# 数据库初始化与分库
 
-`db/schema.sql` 是整个 AniLink 的 MySQL 初始化脚本，覆盖当前代码实际使用的三个库：
+AniLink 的 MySQL 方案分两层：
 
-| 库 | 用途 | 表 |
+| 位置 | 用途 | 状态 |
 | --- | --- | --- |
-| `video` | AL-web / AL-gateway / 画像引擎共用的主库 | 16 张业务表 |
-| `al_remark` | AL-remark 配置里的库；当前服务只用 Redis，库保持为空 | 0 |
-| `al_communication` | AL-communication 配置里的库；当前服务只用 Netty + 内存，库保持为空 | 0 |
+| `db/schema.sql` | **分库前基线**：`video` 单库 16 张业务表 + `al_remark` / `al_communication` 空库 | 保留，作为历史初始化与迁移对照 |
+| `db/schema/` | **Phase 5 分库后目标 schema**：按服务拆成 7 个业务库 + `al_remark`，每库一个文件 | 新环境按此建库建表 |
+| `db/migrations/phase5/` | **现有库的迁移脚本与 runbook**：同实例 `RENAME TABLE` 原地分库，带快照与回滚 | 待 lead/用户在停机窗口执行，不自动跑 |
 
-## 为什么放在根目录 `db/`
+## 1. 目标库与表归属（16 张业务表）
 
-这份 schema 不是某一个服务的私有资源：`AL-web`、`AL-gateway`、`AL-remark`、`AL-communication` 和 Python 画像引擎都会读取其中的库/表。放在根目录可以避免把它误认为 `AL-web` 的自动初始化脚本，也方便部署时统一执行。
+| 库 | 表 | 使用方 | 端口 |
+| --- | --- | --- | --- |
+| `al_user` | `user`、`user_stats`、`user_tag` | AL-user | 8025 |
+| `al_video` | `video`、`video_stats`、`user_video`、`category` | AL-video | 8026 |
+| `al_playback` | `bh_video` | AL-playback | 8027 |
+| `al_comment` | `comment` | AL-comment | 8028 |
+| `al_danmaku` | `danmu`、`sub_danmu` | AL-danmaku | 8029 / WS 8030 |
+| `al_social` | `follow`、`favorite`、`favorite_video` | AL-social | 8031 |
+| `al_communication` | `chat`、`chat_message` | AL-communication | 8023 / WS 8024 |
+| `al_remark` | 0 张（点赞走 Redis + MQ） | AL-remark | 8021 |
+| — | 不建业务库 | AL-admin（内部契约）、AL-datacenter（BFF 无自有表） | 8040 / 8032 |
 
-## 用法
+> 每个服务只允许访问自己的库/表；跨域数据一律走 `/internal/v1/**` 内部契约（Feign），禁止跨库 JOIN。
+> 分库后各服务 `application.yml` 的 `spring.datasource.url` 已指向自己的库；账号/口令仍由 Nacos
+> `shared-mysql.yaml` 注入，本地不写口令。
+
+## 2. 新环境：按分库 schema 初始化
 
 ```powershell
-mysql -u root -p < db/schema.sql
+# 在仓库根目录，逐个库建库建表（脚本内已含 CREATE DATABASE IF NOT EXISTS）
+mysql -u root -p < db/schema/al_user.sql
+mysql -u root -p < db/schema/al_video.sql
+mysql -u root -p < db/schema/al_playback.sql
+mysql -u root -p < db/schema/al_comment.sql
+mysql -u root -p < db/schema/al_danmaku.sql
+mysql -u root -p < db/schema/al_social.sql
+mysql -u root -p < db/schema/al_communication.sql
+mysql -u root -p < db/schema/al_remark.sql
 ```
 
-已有库升级请按日期执行 `db/migrations/` 下的增量脚本，例如 `2026-11-26-video-cover-thumb-url.sql`（给 `video` 增加 `cover_thumb_url`，用于 480w 封面缩略图）。新建库直接执行 `schema.sql` 即可，脚本里已包含该列。
+特性与旧 `schema.sql` 一致：只 `CREATE DATABASE/TABLE IF NOT EXISTS`，不 `DROP`、不清数据、不含业务种子数据；
+管理员账号需自行注册后调整 `user.role`。
 
-脚本特性：
+## 3. 已有库：Phase 5 分库迁移（不自动执行）
 
-- `CREATE DATABASE IF NOT EXISTS`：不会删除已有库。
-- `CREATE TABLE IF NOT EXISTS`：空库可直接初始化；已有表不会被修改。
-- 不包含 `DROP TABLE`，不会清空数据。
-- 不含业务种子数据；管理员账号需自行注册后调整 `user.role`。
+现有环境（表都在 `video` 单库）用迁移脚本原地分库，**不复制数据**：
 
-## `video` 表清单
+| 文件 | 内容 |
+| --- | --- |
+| [migrations/phase5/README.md](migrations/phase5/README.md) | **runbook**：停机窗口、执行顺序、验证 SQL、回滚步骤、遗留事项 |
+| [migrations/phase5/00-snapshot.md](migrations/phase5/00-snapshot.md) | `mysqldump` 全库快照、校验、恢复演练、行数基线 |
+| [migrations/phase5/01-create-databases.sql](migrations/phase5/01-create-databases.sql) | 创建 8 个目标库（7 业务库 + `al_remark`） |
+| [migrations/phase5/02-rename-tables.sql](migrations/phase5/02-rename-tables.sql) | 单条原子 `RENAME TABLE` 把 16 张表改名到对应库 |
+| [migrations/phase5/03-grants.sql](migrations/phase5/03-grants.sql) | 最小权限账号模板（口令占位符，执行前必须替换） |
+| [migrations/phase5/99-rollback.sql](migrations/phase5/99-rollback.sql) | 反向 `RENAME TABLE` 回滚到 `video` 单库 |
 
-| 表 | 用途 | 主要使用方 |
+执行顺序一句话：**停写 → 全库快照 → 建库 → 改名 → 验证 → （可选）建账号 → 发布配置 → 启动冒烟**；
+出现异常按 runbook「回滚步骤」先 `99-rollback.sql` 反向改名，再回滚配置，最后用快照兜底。
+本仓库**只提供脚本，不连接数据库执行任何 DDL/DML**，由 lead/用户人工执行。
+
+## 4. 旧视频库表清单（`db/schema.sql` 基线，分库前）
+
+| 表 | 用途 | 分库后归属 |
 | --- | --- | --- |
-| `user` | 用户、角色、状态 | AL-web、网关鉴权 |
-| `user_stats` | 粉丝/关注/获赞等统计 | AL-web |
-| `user_tag` | 用户画像语义标签 | 画像引擎、AL-web |
-| `video` | 视频稿件与转码/审核状态 | AL-web |
-| `video_stats` | 播放/弹幕/点赞等统计 | AL-web |
-| `category` | 主/子分区 | 画像引擎向量化 |
-| `bh_video` | 浏览历史 | AL-web |
-| `user_video` | 用户-视频互动 | AL-web、画像引擎 |
-| `favorite` | 收藏夹 | AL-web |
-| `favorite_video` | 收藏夹-视频关系 | AL-web |
-| `follow` | 关注关系 | AL-web |
-| `comment` | 评论 | AL-web |
-| `danmu` | 弹幕 | AL-web、画像引擎 |
-| `sub_danmu` | 弹幕测试表，`DanmuMapper` 仍引用 | AL-web |
-| `chat` | 聊天会话 | AL-web |
-| `chat_message` | 聊天消息 | AL-web |
+| `user` | 用户、角色、状态 | `al_user` |
+| `user_stats` | 粉丝/关注/获赞等统计 | `al_user` |
+| `user_tag` | 用户画像语义标签 | `al_user` |
+| `video` | 视频稿件与转码/审核状态 | `al_video` |
+| `video_stats` | 播放/弹幕/点赞等统计 | `al_video` |
+| `user_video` | 用户-视频互动 | `al_video` |
+| `category` | 主/子分区 | `al_video` |
+| `bh_video` | 浏览历史 | `al_playback` |
+| `comment` | 评论 | `al_comment` |
+| `danmu` | 弹幕 | `al_danmaku` |
+| `sub_danmu` | 弹幕测试表（代码当前无引用） | `al_danmaku` |
+| `follow` | 关注关系 | `al_social` |
+| `favorite` | 收藏夹 | `al_social` |
+| `favorite_video` | 收藏夹-视频关系 | `al_social` |
+| `chat` | 聊天会话 | `al_communication` |
+| `chat_message` | 聊天消息 | `al_communication` |
 
-## 未纳入的表
+## 5. 账号与权限
 
-- `video.user_bak_20261122`：开发库中的备份表，代码无引用，未导出。
-- `al_remark` / `al_communication` 当前没有业务表；服务只使用 Redis/内存。建空库是为了 datasource 能启动。
+- 分库前：所有服务共用 Nacos `shared-mysql.yaml` 里的一个账号（对 `video`/`al_remark`/`al_communication` 有权限）。
+- 分库后：目标是最小权限账号（每个服务只读写自己的库，无 DDL、无跨库授权），模板见
+  [migrations/phase5/03-grants.sql](migrations/phase5/03-grants.sql)，口令一律使用占位符，**不要提交真实口令**。
+- 只读账号 `al_engine_ro` 供画像引擎/数据核对使用；引擎的跨库读取改造见 runbook「遗留事项」。
+- 库账号/口令只放在 Nacos 共享配置或环境变量里，不写进仓库、日志、截图。
 
-## 维护
+## 6. 维护
 
-- 本文档与 `schema.sql` 以当前开发库结构为准；新增/修改表后应同步更新，并优先通过迁移脚本管理已有库。
-- 旧文件 `AniLink-AlgorithmEngine/Assets/sql.sql` 只覆盖部分早期表，已不是完整初始化来源；保留用于历史参考。
+- 新环境初始化以 `db/schema/` 为准；`db/schema.sql` 只作分库前基线与迁移对照，不再追加新表。
+- 已有库的结构变更继续放 `db/migrations/` 增量脚本（命名 `YYYY-MM-DD-简述.sql`），执行前备份。
+- 分库迁移完成后若有新表，按归属加到对应 `db/schema/al_*.sql` 的增量脚本里，保持文档与结构一致。
+- 旧文件 `AniLink-AlgorithmEngine/Assets/sql.sql` 只覆盖部分早期表，已不是初始化来源；保留用于历史参考。
+- 旧库 `video` 在观察期（≥7 天）且确认不回滚后再清理；`video.user_bak_20261122` 是开发库备份表，代码无引用，未纳入 schema。
